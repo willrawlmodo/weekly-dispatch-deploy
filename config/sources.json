@@ -1,0 +1,107 @@
+{
+  "news_sources": [
+    {
+      "name": "Energy Storage News",
+      "url": "https://www.energy-storage.news/",
+      "rss": "https://www.energy-storage.news/feed/",
+      "category": "industry"
+    },
+    {
+      "name": "PV Magazine",
+      "url": "https://www.pv-magazine.com/category/markets-policy/storage/",
+      "rss": "https://www.pv-magazine.com/feed/",
+      "category": "industry"
+    },
+    {
+      "name": "Recharge News",
+      "url": "https://www.rechargenews.com/",
+      "rss": "https://www.rechargenews.com/rss",
+      "category": "industry"
+    },
+    {
+      "name": "Current±",
+      "url": "https://www.current-news.co.uk/",
+      "rss": "https://www.current-news.co.uk/feed/",
+      "category": "industry"
+    },
+    {
+      "name": "Utility Week",
+      "url": "https://utilityweek.co.uk/",
+      "rss": "https://utilityweek.co.uk/feed/",
+      "category": "industry"
+    },
+    {
+      "name": "Ofgem News",
+      "url": "https://www.ofgem.gov.uk/news-and-views/news",
+      "rss": null,
+      "category": "regulatory"
+    },
+    {
+      "name": "BNetzA News",
+      "url": "https://www.bundesnetzagentur.de/EN/General/News/news_node.html",
+      "rss": null,
+      "category": "regulatory"
+    },
+    {
+      "name": "Reuters Energy",
+      "url": "https://www.reuters.com/business/energy/",
+      "rss": null,
+      "category": "financial"
+    },
+    {
+      "name": "National Grid ESO",
+      "url": "https://www.nationalgrideso.com/news",
+      "rss": null,
+      "category": "company"
+    },
+    {
+      "name": "Montel News",
+      "url": "https://www.montelnews.com/",
+      "rss": null,
+      "category": "financial"
+    },
+    {
+      "name": "S&P Global Commodity Insights",
+      "url": "https://www.spglobal.com/commodityinsights/en/market-insights/topics/electric-power",
+      "rss": null,
+      "category": "financial"
+    },
+    {
+      "name": "Cleantech Group",
+      "url": "https://www.cleantech.com/",
+      "rss": null,
+      "category": "industry"
+    },
+    {
+      "name": "GTM (Canary Media)",
+      "url": "https://www.canarymedia.com/",
+      "rss": "https://www.canarymedia.com/feed",
+      "category": "industry"
+    },
+    {
+      "name": "Electrek",
+      "url": "https://electrek.co/guides/energy-storage/",
+      "rss": "https://electrek.co/feed/",
+      "category": "industry"
+    },
+    {
+      "name": "Energy Voice",
+      "url": "https://www.energyvoice.com/",
+      "rss": "https://www.energyvoice.com/feed/",
+      "category": "industry"
+    }
+  ],
+  "youtube_playlist": {
+    "name": "Transmission Podcast",
+    "playlist_id": "PL_lhNBgOJnjQrdbgV5COaOREGVfOU6ek5",
+    "channel_url": "https://www.youtube.com/playlist?list=PL_lhNBgOJnjQrdbgV5COaOREGVfOU6ek5"
+  },
+  "modo_research": {
+    "base_url": "https://modoenergy.com/research",
+    "regions": {
+      "gb_europe": "gb_de_fr_it_ib",
+      "non_europe": "us_aus_nem_wem_miso_ercot_caiso"
+    },
+    "language": "en"
+  }
+}
