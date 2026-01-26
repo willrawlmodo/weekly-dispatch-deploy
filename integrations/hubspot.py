@@ -46,24 +46,29 @@ class HubSpotIntegration:
         "from_email": "shaniyaa@modoenergy.com",
         "from_name": "Shaniyaa Holness-Mckenzie",
         "image_folder": "European Weekly Dispatch",
-        "include_lists": [
-            "July GB/Europe livestream registrants",
-            "EU contacts [ALL] (Neil's Dispatch list)",
-            "Germany livestream signups - October 2025",
-            "Spain livestream signups - October 2025",
-            "GB livestream signup - October 2025",
-            "Madrid Workshops Guest List - Tuesday.csv",
-            "Madrid Workshops Guest List - Wednesday Session 1.csv",
-            "Madrid Workshops Guest List - Wednesday Session 2.csv",
-            "Party Attendees - Sheet1.csv",
-            "Weekly Newsletter - Great Britain",
-            "Contacts from Company with LIVE GB & Europe Research Deals"
-        ],
-        "exclude_lists": [
-            "Opted out of weekly newsletter",
-            "GB Weekly Roundup Did Not Sends",
-            "Marketing suppression list (unsubscribed from ALL email or Sales want excluded)"
-        ]
+        # RECIPIENT LISTS DISABLED FOR SAFETY - Uncomment when ready to use
+        # Lists will need to be configured manually in HubSpot UI for now
+        "include_lists": [],
+        "exclude_lists": []
+        # --- ORIGINAL LISTS (uncomment to re-enable) ---
+        # "include_lists": [
+        #     "July GB/Europe livestream registrants",
+        #     "EU contacts [ALL] (Neil's Dispatch list)",
+        #     "Germany livestream signups - October 2025",
+        #     "Spain livestream signups - October 2025",
+        #     "GB livestream signup - October 2025",
+        #     "Madrid Workshops Guest List - Tuesday.csv",
+        #     "Madrid Workshops Guest List - Wednesday Session 1.csv",
+        #     "Madrid Workshops Guest List - Wednesday Session 2.csv",
+        #     "Party Attendees - Sheet1.csv",
+        #     "Weekly Newsletter - Great Britain",
+        #     "Contacts from Company with LIVE GB & Europe Research Deals"
+        # ],
+        # "exclude_lists": [
+        #     "Opted out of weekly newsletter",
+        #     "GB Weekly Roundup Did Not Sends",
+        #     "Marketing suppression list (unsubscribed from ALL email or Sales want excluded)"
+        # ]
     }
 
     def __init__(self):
