@@ -342,7 +342,7 @@ class HubSpotIntegration:
         print(f"  Include lists: {len(self.settings['include_lists'])} lists")
         print(f"  Exclude lists: {len(self.settings['exclude_lists'])} lists")
 
-        # Build the email payload
+        # Build the email payload for custom HTML email
         email_data = {
             "name": name,
             "subject": subject,
@@ -350,7 +350,8 @@ class HubSpotIntegration:
             "fromName": self.settings['from_name'],
             "replyTo": self.settings['from_email'],
             "content": {
-                "html": html
+                "plainTextVersion": "View this email in your browser.",
+                "htmlVersion": html
             },
             "state": "DRAFT"  # IMPORTANT: Only creates a draft, not sent
         }
