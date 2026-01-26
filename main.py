@@ -39,6 +39,9 @@ class NewsletterAgent:
             "header_alt": "MODOENERGY Weekly Dispatch Europe & GB Edition",
             "article_region": "gb_europe",
             "news_region": "europe",
+            "from_name": "Shaniyaa Holness-Mckenzie",
+            "from_email": "shaniyaa@modoenergy.com",
+            "image_folder": "European Weekly Dispatch",
             "include_lists": [
                 "July GB/Europe livestream registrants",
                 "EU contacts [ALL] (Neil's Dispatch list)",
@@ -64,6 +67,9 @@ class NewsletterAgent:
             "header_alt": "MODOENERGY Weekly Dispatch US Edition",
             "article_region": "non_europe",
             "news_region": "us",
+            "from_name": "Brandt Vermillion",
+            "from_email": "brandt@modoenergy.com",
+            "image_folder": "US Weekly Dispatch",
             "include_lists": [
                 "Weekly Newsletter - ERCOT",
                 "US Growth US Outreach",
@@ -91,6 +97,9 @@ class NewsletterAgent:
             "header_alt": "MODOENERGY Weekly Dispatch Australia Edition",
             "article_region": "non_europe",
             "news_region": "australia",
+            "from_name": "Wendel from Modo Energy",
+            "from_email": "wendel@modoenergy.com",
+            "image_folder": "Aus Weekly Dispatch",
             "include_lists": [
                 "Contact region = APAC",
                 "Australia livestream signups - October 2025",
@@ -1065,10 +1074,13 @@ class NewsletterAgent:
         try:
             hubspot = HubSpotIntegration()
 
-            # Set region-specific recipient lists
+            # Set region-specific settings
             region_config = self.REGION_CONFIG.get(self.selected_region, {})
             hubspot.settings['include_lists'] = region_config.get('include_lists', [])
             hubspot.settings['exclude_lists'] = region_config.get('exclude_lists', [])
+            hubspot.settings['from_name'] = region_config.get('from_name', hubspot.settings['from_name'])
+            hubspot.settings['from_email'] = region_config.get('from_email', hubspot.settings['from_email'])
+            hubspot.settings['image_folder'] = region_config.get('image_folder', hubspot.settings['image_folder'])
 
             upload_images = (choice == 1)
 
