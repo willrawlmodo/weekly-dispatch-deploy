@@ -39,6 +39,24 @@ class NewsletterAgent:
             "header_alt": "MODOENERGY Weekly Dispatch Europe & GB Edition",
             "article_region": "gb_europe",
             "news_region": "europe",
+            "include_lists": [
+                "July GB/Europe livestream registrants",
+                "EU contacts [ALL] (Neil's Dispatch list)",
+                "Germany livestream signups - October 2025",
+                "Spain livestream signups - October 2025",
+                "GB livestream signup - October 2025",
+                "Madrid Workshops Guest List - Tuesday.csv",
+                "Madrid Workshops Guest List - Wednesday Session 1.csv",
+                "Madrid Workshops Guest List - Wednesday Session 2.csv",
+                "Party Attendees - Sheet1.csv",
+                "Weekly Newsletter - Great Britain",
+                "Contacts from Company with LIVE GB & Europe Research Deals"
+            ],
+            "exclude_lists": [
+                "Opted out of weekly newsletter",
+                "GB Weekly Roundup Did Not Sends",
+                "Marketing suppression list (unsubscribed from ALL email or Sales want excluded)"
+            ]
         },
         "us": {
             "name": "US",
@@ -46,6 +64,26 @@ class NewsletterAgent:
             "header_alt": "MODOENERGY Weekly Dispatch US Edition",
             "article_region": "non_europe",
             "news_region": "us",
+            "include_lists": [
+                "Weekly Newsletter - ERCOT",
+                "US Growth US Outreach",
+                "Feb 26 2025 US BESS briefing list",
+                "US Research Sequence [Sept 25]",
+                "USA livestream registrants - October 2025",
+                "ESS USA 2025 attendees - Registrant List.csv",
+                "ERCOT livestream (July 2025) signups",
+                "Webinar follow-up ERCOT BESS 7/29",
+                "US BESS Operators and Optimizers viewers",
+                "ERCOT Livestream Q3 2025 non-attendees",
+                "US Research Outbound",
+                "US Customer Contacts - no GB overlap",
+                "US Customer Contacts - multi-region under Matt",
+                "ERCOT Market Summit 2024 - Leads",
+                "Paying customers in North America (Neil's bodgejob list)"
+            ],
+            "exclude_lists": [
+                "Opted out of weekly newsletter"
+            ]
         },
         "australia": {
             "name": "Australia",
@@ -53,6 +91,19 @@ class NewsletterAgent:
             "header_alt": "MODOENERGY Weekly Dispatch Australia Edition",
             "article_region": "non_europe",
             "news_region": "australia",
+            "include_lists": [
+                "Contact region = APAC",
+                "Australia livestream signups - October 2025",
+                "ESS AUS 2025",
+                "Weekly Newsletter - Australia",
+                "General Registration - Aus Livestream Aug 2025",
+                "Sequence follow up aus livestream",
+                "WORKSHOP_ The Outlook for BESS in the NEM - Guests - 2025-09-30-13-50-44 - WORKSHOP_ The Outlook for BESS in the NEM - Guests"
+            ],
+            "exclude_lists": [
+                "Opted out of weekly newsletter",
+                "Marketing suppression list (unsubscribed from ALL email or Sales want excluded)"
+            ]
         }
     }
 
@@ -1013,6 +1064,11 @@ class NewsletterAgent:
 
         try:
             hubspot = HubSpotIntegration()
+
+            # Set region-specific recipient lists
+            region_config = self.REGION_CONFIG.get(self.selected_region, {})
+            hubspot.settings['include_lists'] = region_config.get('include_lists', [])
+            hubspot.settings['exclude_lists'] = region_config.get('exclude_lists', [])
 
             upload_images = (choice == 1)
 
