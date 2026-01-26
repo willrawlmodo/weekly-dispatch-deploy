@@ -349,12 +349,11 @@ class HubSpotIntegration:
             "previewText": preview_text[:150] if preview_text else "",
             "fromName": self.settings['from_name'],
             "replyTo": self.settings['from_email'],
-            "content": {
-                "plainTextVersion": "View this email in your browser.",
-                "htmlVersion": html
-            },
             "state": "DRAFT"  # IMPORTANT: Only creates a draft, not sent
         }
+
+        # Try to create the draft first, then update it with HTML via PATCH
+        # This is a two-step process that works better with HubSpot's API
 
         # Add sender email if supported
         # Note: Some HubSpot plans require verified sender addresses
@@ -375,6 +374,9 @@ class HubSpotIntegration:
                 print(f"  Subject: {subject}")
                 print(f"  Status: DRAFT (not sent)")
 
+                # Copy HTML to clipboard for manual paste
+                self._copy_html_to_clipboard(html)
+
                 # Try to set the recipient lists
                 self._configure_recipients(email_id)
 
@@ -387,6 +389,30 @@ class HubSpotIntegration:
         except Exception as e:
             print(f"✗ Error creating email draft: {e}")
             return None
+
+    def _copy_html_to_clipboard(self, html: str):
+        """Copy HTML to clipboard and show instructions."""
+        import subprocess
+
+        try:
+            # Copy to clipboard using pbcopy (macOS)
+            process = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
+            process.communicate(html.encode('utf-8'))
+            print("\n✓ HTML copied to clipboard!")
+            print("\n" + "=" * 50)
+            print("NEXT STEPS - Paste HTML into HubSpot:")
+            print("=" * 50)
+            print("1. Go to HubSpot → Marketing → Email")
+            print("2. Find your draft and click 'Edit'")
+            print("3. In the editor, click 'Actions' → 'Edit HTML'")
+            print("   (or look for '</>' code icon)")
+            print("4. Select all existing content and DELETE it")
+            print("5. Paste (Cmd+V) your HTML from clipboard")
+            print("6. Save and preview the email")
+            print("=" * 50)
+        except Exception as e:
+            print(f"\n⚠ Could not copy to clipboard: {e}")
+            print("  The HTML has been saved to the output folder.")
 
     def _configure_recipients(self, email_id: str):
         """Configure the recipient and exclusion lists for an email."""

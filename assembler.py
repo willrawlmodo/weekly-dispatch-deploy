@@ -129,54 +129,8 @@ class NewsletterAssembler:
         # 9. Footer
         html_parts.append(self._load_template('footer'))
 
-        # Join all parts
-        body_content = '\n\n'.join(html_parts)
-
-        # Wrap in complete HTML document for HubSpot compatibility
-        html_wrapper = '''<!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="x-apple-disable-message-reformatting">
-    <title>Weekly Dispatch</title>
-    <!--[if mso]>
-    <noscript>
-        <xml>
-            <o:OfficeDocumentSettings>
-                <o:PixelsPerInch>96</o:PixelsPerInch>
-            </o:OfficeDocumentSettings>
-        </xml>
-    </noscript>
-    <![endif]-->
-    <style type="text/css">
-        body {{ margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }}
-        table {{ border-collapse: collapse; }}
-        img {{ border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }}
-        a img {{ border: none; }}
-    </style>
-</head>
-<body style="margin:0; padding:0; background-color:#f5f5f5;">
-    <center style="width:100%; background-color:#f5f5f5;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f5f5;">
-            <tr>
-                <td align="center" valign="top">
-                    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:600px; background-color:#ffffff;">
-                        <tr>
-                            <td>
-{body_content}
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </center>
-</body>
-</html>'''
-
-        return html_wrapper.format(body_content=body_content)
+        # Return just the content (no html/head/body wrapper - HubSpot adds those)
+        return '\n\n'.join(html_parts)
 
     def _build_featured_articles(self, articles: List[Dict]) -> str:
         """Build the featured articles section (supports 1, 2, or 3 articles)."""
