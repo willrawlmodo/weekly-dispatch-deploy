@@ -47,7 +47,8 @@ class HubSpotIntegration:
         "from_name": "Shaniyaa Holness-Mckenzie",
         "image_folder": "European Weekly Dispatch",
         "include_lists": [],
-        "exclude_lists": []
+        "exclude_lists": [],
+        "exclude_emails": []  # Individual email addresses to exclude
     }
 
     def __init__(self):
@@ -143,8 +144,12 @@ class HubSpotIntegration:
                     return None
 
                 filename = os.path.basename(local_path)
+                # Sanitize filename - replace spaces with underscores
+                filename = filename.replace(' ', '_')
+                print(f"    Reading local file: {local_path}")
                 with open(local_path, 'rb') as f:
                     file_content = f.read()
+                print(f"    File size: {len(file_content)} bytes")
 
                 # Determine content type from extension
                 ext = os.path.splitext(filename)[1].lower()
@@ -235,6 +240,32 @@ class HubSpotIntegration:
             return True
         return False
 
+    def _is_valid_image_source(self, source: str) -> bool:
+        """Check if a string is a valid image URL or file path."""
+        if not source or not isinstance(source, str):
+            return False
+
+        source = source.strip().strip("'\"")
+
+        # Must be at least a few characters
+        if len(source) < 5:
+            return False
+
+        # Check for valid URL
+        if source.startswith('http://') or source.startswith('https://'):
+            return True
+
+        # Check for valid local path
+        if source.startswith('/') or source.startswith('~') or source.startswith('./'):
+            expanded = os.path.expanduser(source)
+            return os.path.exists(expanded)
+
+        # Check for Windows paths
+        if len(source) > 2 and source[1] == ':':
+            return os.path.exists(source)
+
+        return False
+
     def upload_newsletter_images(self, html: str, content: Dict) -> str:
         """
         Upload all newsletter images to HubSpot and replace URLs in HTML.
@@ -248,50 +279,125 @@ class HubSpotIntegration:
         """
         print(f"\nUploading images to HubSpot (/{self.settings['image_folder']}/)...")
 
-        # Collect all image URLs from content
-        image_urls = set()
+        # Collect all image sources from content with labels for logging
+        image_sources = []
 
         # Featured articles
-        for article in content.get('featured_articles', []):
+        for i, article in enumerate(content.get('featured_articles', [])):
             if article.get('thumbnail_url'):
-                image_urls.add(article['thumbnail_url'])
+                image_sources.append({
+                    'source': article['thumbnail_url'],
+                    'label': f"Featured article {i+1}"
+                })
 
         # Chart
         if content.get('chart', {}).get('image_url'):
-            image_urls.add(content['chart']['image_url'])
+            chart_url = content['chart']['image_url']
+            print(f"  DEBUG: Chart image_url from content: '{chart_url}'")
+            image_sources.append({
+                'source': chart_url,
+                'label': "Chart of the week"
+            })
 
         # Promotional banner
         if content.get('promotional_banner', {}).get('image_url'):
-            image_urls.add(content['promotional_banner']['image_url'])
+            image_sources.append({
+                'source': content['promotional_banner']['image_url'],
+                'label': "Promotional banner"
+            })
 
         # Podcast thumbnail
         if content.get('podcast', {}).get('thumbnail'):
-            image_urls.add(content['podcast']['thumbnail'])
+            image_sources.append({
+                'source': content['podcast']['thumbnail'],
+                'label': "Podcast thumbnail"
+            })
 
         # World articles
-        for article in content.get('world_articles', []):
+        for i, article in enumerate(content.get('world_articles', [])):
             if article.get('thumbnail_url'):
-                image_urls.add(article['thumbnail_url'])
+                image_sources.append({
+                    'source': article['thumbnail_url'],
+                    'label': f"World article {i+1}"
+                })
+
+        print(f"\nFound {len(image_sources)} images to process:")
+        for item in image_sources:
+            print(f"  - {item['label']}: {item['source'][:70]}...")
 
         # Upload each image and track URL mappings
         url_mapping = {}
-        for image_source in image_urls:
-            if not image_source:
+        skipped = 0
+        failed = 0
+
+        for item in image_sources:
+            original_source = item['source']
+            label = item['label']
+
+            # Clean the source for processing
+            source = original_source.strip().strip("'\"")
+
+            print(f"\n  Processing: {label}")
+            print(f"    Original: '{original_source[:60]}...'")
+            print(f"    Cleaned:  '{source[:60]}...'")
+
+            # Validate source
+            if not self._is_valid_image_source(source):
+                print(f"    ⚠ Invalid source - SKIPPED")
+                failed += 1
                 continue
+
             # Skip images already hosted on HubSpot
-            if image_source.startswith('https://25093280.fs1.hubspotusercontent'):
+            if 'hubspotusercontent' in source or ('hubspot' in source.lower() and 'fs1' in source):
+                print(f"    ○ Already on HubSpot - skipped")
+                skipped += 1
                 continue
+
             # Upload from URL or local path
-            new_url = self.upload_image(image_source)
+            print(f"    → Uploading to HubSpot...")
+            new_url = self.upload_image(source)
             if new_url:
-                url_mapping[image_source] = new_url
+                # Store BOTH original and cleaned versions for replacement
+                url_mapping[source] = new_url
+                if original_source != source:
+                    url_mapping[original_source] = new_url
+                print(f"    ✓ Success! New URL: {new_url[:70]}...")
+            else:
+                print(f"    ✗ Failed to upload")
+                failed += 1
 
         # Replace URLs in HTML
+        print(f"\n{'=' * 40}")
+        print(f"Replacing {len(url_mapping)} URLs in HTML...")
         updated_html = html
         for old_url, new_url in url_mapping.items():
-            updated_html = updated_html.replace(old_url, new_url)
+            # Replace all occurrences (might appear multiple times in HTML)
+            count = updated_html.count(old_url)
+            if count > 0:
+                updated_html = updated_html.replace(old_url, new_url)
+                print(f"  ✓ Replaced {count}x: {old_url[:50]}...")
+            else:
+                # Try URL-encoded version (spaces become %20)
+                import urllib.parse
+                encoded_url = urllib.parse.quote(old_url, safe=':/')
+                count_encoded = updated_html.count(encoded_url)
+                if count_encoded > 0:
+                    updated_html = updated_html.replace(encoded_url, new_url)
+                    print(f"  ✓ Replaced {count_encoded}x (URL-encoded): {old_url[:50]}...")
+                else:
+                    # Debug: show what we're looking for vs what's in HTML
+                    print(f"  ⚠ NOT FOUND: '{old_url[:60]}...'")
+                    # Check if a partial match exists
+                    if old_url.split('/')[-1] in html:
+                        print(f"    (filename exists in HTML but full URL doesn't match)")
 
-        print(f"✓ Uploaded {len(url_mapping)} images to HubSpot")
+        print(f"\n{'=' * 40}")
+        print(f"Image upload summary:")
+        print(f"  ✓ Uploaded: {len(url_mapping)}")
+        print(f"  ○ Skipped (already on HubSpot): {skipped}")
+        print(f"  ✗ Failed/Invalid: {failed}")
+        print(f"{'=' * 40}")
+
         return updated_html
 
     def create_email_draft(
@@ -318,24 +424,69 @@ class HubSpotIntegration:
 
         print(f"\nCreating email DRAFT: {name}")
         print(f"  From: {self.settings['from_name']} <{self.settings['from_email']}>")
+        print(f"  Preview: {preview_text[:80]}..." if preview_text else "  Preview: (none)")
         print(f"  Include lists: {len(self.settings['include_lists'])} lists")
         print(f"  Exclude lists: {len(self.settings['exclude_lists'])} lists")
+        print(f"  Exclude emails: {len(self.settings.get('exclude_emails', []))} addresses")
 
-        # Build the email payload for custom HTML email
+        # Look up list IDs before creating the email
+        print("\nLooking up recipient lists...")
+        include_list_ids = []
+        exclude_list_ids = []
+
+        for list_name in self.settings['include_lists']:
+            list_id = self.get_list_id_by_name(list_name)
+            if list_id:
+                include_list_ids.append(list_id)
+                print(f"  ✓ Include: {list_name[:50]}...")
+            else:
+                print(f"  ? Not found: {list_name[:50]}...")
+
+        for list_name in self.settings['exclude_lists']:
+            list_id = self.get_list_id_by_name(list_name)
+            if list_id:
+                exclude_list_ids.append(list_id)
+                print(f"  ✓ Exclude: {list_name[:50]}...")
+            else:
+                print(f"  ? Not found: {list_name[:50]}...")
+
+        # Build the email payload with all fields
+        # Using HubSpot Marketing Email API v3 fields
         email_data = {
             "name": name,
             "subject": subject,
-            "previewText": preview_text[:150] if preview_text else "",
-            "fromName": self.settings['from_name'],
-            "replyTo": self.settings['from_email'],
-            "state": "DRAFT"  # IMPORTANT: Only creates a draft, not sent
+            "state": "DRAFT"
         }
 
-        # Try to create the draft first, then update it with HTML via PATCH
-        # This is a two-step process that works better with HubSpot's API
+        # Add preview text
+        if preview_text:
+            email_data["previewText"] = preview_text[:150]
 
-        # Add sender email if supported
-        # Note: Some HubSpot plans require verified sender addresses
+        # Add from name and email
+        # Note: HubSpot API expects 'from' as an object with 'email' property
+        if self.settings.get('from_name'):
+            email_data["fromName"] = self.settings['from_name']
+        if self.settings.get('from_email'):
+            email_data["from"] = {"email": self.settings['from_email']}
+            email_data["replyTo"] = self.settings['from_email']
+
+        # Add recipient lists (sendTo / contactIlsLists)
+        if include_list_ids:
+            email_data["sendTo"] = {
+                "contactIlsLists": include_list_ids
+            }
+
+        # Add exclusion lists and emails (dontSendTo)
+        exclude_emails = self.settings.get('exclude_emails', [])
+        if exclude_list_ids or exclude_emails:
+            dont_send_to = {}
+            if exclude_list_ids:
+                dont_send_to["contactIlsLists"] = exclude_list_ids
+            if exclude_emails:
+                dont_send_to["emails"] = exclude_emails
+            email_data["dontSendTo"] = dont_send_to
+
+        print(f"\n  Sending API request with {len(include_list_ids)} include lists, {len(exclude_list_ids)} exclude lists, {len(exclude_emails)} exclude emails...")
 
         try:
             response = self.session.post(
@@ -351,23 +502,81 @@ class HubSpotIntegration:
                 print(f"  ID: {email_id}")
                 print(f"  Name: {name}")
                 print(f"  Subject: {subject}")
+                print(f"  Preview: {preview_text[:60]}..." if preview_text else "  Preview: (none)")
+                print(f"  From: {self.settings['from_name']} <{self.settings['from_email']}>")
+                print(f"  Send to: {len(include_list_ids)} lists")
+                print(f"  Don't send to: {len(exclude_list_ids)} lists + {len(exclude_emails)} emails")
                 print(f"  Status: DRAFT (not sent)")
-
-                # Copy HTML to clipboard for manual paste
-                self._copy_html_to_clipboard(html)
-
-                # Try to set the recipient lists
-                self._configure_recipients(email_id)
 
                 return result
             else:
                 print(f"✗ Failed to create email: {response.status_code}")
                 print(f"  Response: {response.text[:500]}")
+
+                # Try fallback without lists if that was the issue
+                if "sendTo" in email_data or "dontSendTo" in email_data:
+                    print("\n  Retrying without recipient lists...")
+                    fallback_data = {
+                        "name": name,
+                        "subject": subject,
+                        "state": "DRAFT"
+                    }
+                    if preview_text:
+                        fallback_data["previewText"] = preview_text[:150]
+                    if self.settings.get('from_name'):
+                        fallback_data["fromName"] = self.settings['from_name']
+                    if self.settings.get('from_email'):
+                        fallback_data["from"] = {"email": self.settings['from_email']}
+                        fallback_data["replyTo"] = self.settings['from_email']
+
+                    fallback_response = self.session.post(
+                        f"{self.BASE_URL}/marketing/v3/emails",
+                        json=fallback_data,
+                        timeout=60
+                    )
+
+                    if fallback_response.status_code in [200, 201]:
+                        result = fallback_response.json()
+                        email_id = result.get('id')
+                        print(f"\n✓ Email DRAFT created (without lists - configure manually)")
+                        print(f"  ID: {email_id}")
+                        print(f"  Note: Recipient lists need to be configured manually in HubSpot")
+
+                        # Try to update the email with lists via PATCH
+                        self._update_email_recipients(email_id, include_list_ids, exclude_list_ids)
+
+                        return result
+
                 return None
 
         except Exception as e:
             print(f"✗ Error creating email draft: {e}")
             return None
+
+    def _update_email_recipients(self, email_id: str, include_ids: List[int], exclude_ids: List[int]):
+        """Try to update email recipients via PATCH after creation."""
+        if not include_ids and not exclude_ids:
+            return
+
+        update_data = {}
+        if include_ids:
+            update_data["sendTo"] = {"contactIlsLists": include_ids}
+        if exclude_ids:
+            update_data["dontSendTo"] = {"contactIlsLists": exclude_ids}
+
+        try:
+            response = self.session.patch(
+                f"{self.BASE_URL}/marketing/v3/emails/{email_id}",
+                json=update_data,
+                timeout=30
+            )
+            if response.status_code in [200, 201]:
+                print(f"  ✓ Updated recipient lists via PATCH")
+            else:
+                print(f"  ⚠ Could not update lists via PATCH: {response.status_code}")
+                print(f"    You may need to configure lists manually in HubSpot")
+        except Exception as e:
+            print(f"  ⚠ Could not update lists: {e}")
 
     def _copy_html_to_clipboard(self, html: str):
         """Copy HTML to clipboard and show instructions."""
@@ -393,43 +602,6 @@ class HubSpotIntegration:
             print(f"\n⚠ Could not copy to clipboard: {e}")
             print("  The HTML has been saved to the output folder.")
 
-    def _configure_recipients(self, email_id: str):
-        """Configure the recipient and exclusion lists for an email."""
-        print("\nConfiguring recipient lists...")
-
-        # Note: The exact API for setting lists depends on your HubSpot plan
-        # This attempts to use the marketing email API
-
-        try:
-            # Get list IDs
-            include_ids = []
-            exclude_ids = []
-
-            for list_name in self.settings['include_lists']:
-                list_id = self.get_list_id_by_name(list_name)
-                if list_id:
-                    include_ids.append(list_id)
-                    print(f"  ✓ Include: {list_name[:40]}...")
-                else:
-                    print(f"  ? Could not find: {list_name[:40]}...")
-
-            for list_name in self.settings['exclude_lists']:
-                list_id = self.get_list_id_by_name(list_name)
-                if list_id:
-                    exclude_ids.append(list_id)
-                    print(f"  ✓ Exclude: {list_name[:40]}...")
-                else:
-                    print(f"  ? Could not find: {list_name[:40]}...")
-
-            if include_ids or exclude_ids:
-                print(f"\n  Found {len(include_ids)} include lists, {len(exclude_ids)} exclude lists")
-                print("  Note: You may need to manually configure lists in HubSpot UI")
-                print(f"  List IDs - Include: {include_ids}")
-                print(f"  List IDs - Exclude: {exclude_ids}")
-
-        except Exception as e:
-            print(f"  Warning: Could not configure lists automatically: {e}")
-            print("  You can configure lists manually in HubSpot")
 
     def show_settings(self):
         """Display current settings."""
@@ -443,9 +615,18 @@ class HubSpotIntegration:
             print(f"    - {lst[:50]}...")
         if len(self.settings['include_lists']) > 3:
             print(f"    ... and {len(self.settings['include_lists']) - 3} more")
-        print(f"\n  Do NOT send to ({len(self.settings['exclude_lists'])} lists):")
+
+        # Combine exclude lists and emails in one section
+        exclude_emails = self.settings.get('exclude_emails', [])
+        exclude_lists_count = len(self.settings['exclude_lists'])
+        exclude_emails_count = len(exclude_emails)
+        print(f"\n  Do NOT send to ({exclude_lists_count} lists, {exclude_emails_count} emails):")
         for lst in self.settings['exclude_lists']:
-            print(f"    - {lst[:50]}...")
+            print(f"    - [List] {lst[:50]}...")
+        for email in exclude_emails[:3]:
+            print(f"    - [Email] {email}")
+        if exclude_emails_count > 3:
+            print(f"    ... and {exclude_emails_count - 3} more emails")
 
     def customize_settings(self):
         """Interactive settings customization."""
@@ -604,6 +785,8 @@ class HubSpotIntegration:
         )
 
         if result:
+            # Store the updated HTML in the result for the caller
+            result['_updated_html'] = html
             print("\n" + "=" * 50)
             print("✓ Newsletter DRAFT created in HubSpot!")
             print("=" * 50)

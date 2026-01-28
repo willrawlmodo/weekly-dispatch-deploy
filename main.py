@@ -59,6 +59,14 @@ class NewsletterAgent:
                 "Opted out of weekly newsletter",
                 "GB Weekly Roundup Did Not Sends",
                 "Marketing suppression list (unsubscribed from ALL email or Sales want excluded)"
+            ],
+            "exclude_emails": [
+                "tim+03@modoenergy.com",
+                "tim+1@modoenergy.com",
+                "admin@modo.energy",
+                "tim+2@modo.energy",
+                "tim+3@modoenergy.com",
+                "tim+1@modo.energy"
             ]
         },
         "us": {
@@ -89,6 +97,14 @@ class NewsletterAgent:
             ],
             "exclude_lists": [
                 "Opted out of weekly newsletter"
+            ],
+            "exclude_emails": [
+                "tim+03@modoenergy.com",
+                "tim+1@modoenergy.com",
+                "admin@modo.energy",
+                "tim+2@modo.energy",
+                "tim+3@modoenergy.com",
+                "tim+1@modo.energy"
             ]
         },
         "australia": {
@@ -112,6 +128,14 @@ class NewsletterAgent:
             "exclude_lists": [
                 "Opted out of weekly newsletter",
                 "Marketing suppression list (unsubscribed from ALL email or Sales want excluded)"
+            ],
+            "exclude_emails": [
+                "tim+03@modoenergy.com",
+                "tim+1@modoenergy.com",
+                "admin@modo.energy",
+                "tim+2@modo.energy",
+                "tim+3@modoenergy.com",
+                "tim+1@modo.energy"
             ]
         }
     }
@@ -128,6 +152,47 @@ class NewsletterAgent:
 
         # Selected region (set during workflow)
         self.selected_region = "europe"
+
+    def _validate_image_url(self, url: str) -> str:
+        """
+        Validate and clean an image URL or file path.
+        Returns cleaned URL/path or empty string if invalid.
+        """
+        if not url:
+            return ''
+
+        # Strip whitespace and surrounding quotes
+        url = url.strip().strip("'\"")
+
+        # Check if it's a valid URL
+        if url.startswith('http://') or url.startswith('https://'):
+            return url
+
+        # Check if it's a local file path
+        if url.startswith('/') or url.startswith('~') or url.startswith('./'):
+            # Expand ~ to home directory
+            expanded = os.path.expanduser(url)
+            if os.path.exists(expanded):
+                return expanded
+            else:
+                print(f"    ⚠ Warning: Local file not found: {expanded}")
+                return ''
+
+        # Check for Windows-style paths
+        if len(url) > 2 and url[1] == ':':
+            if os.path.exists(url):
+                return url
+            else:
+                print(f"    ⚠ Warning: Local file not found: {url}")
+                return ''
+
+        # Invalid - not a URL or valid file path
+        # Could be user accidentally entering a number like "1"
+        if url.isdigit() or len(url) < 5:
+            print(f"    ⚠ Warning: '{url}' is not a valid image URL or path")
+            return ''
+
+        return ''
 
     def run(self):
         """Run the interactive newsletter generation workflow."""
@@ -381,7 +446,16 @@ class NewsletterAgent:
         chart_title = "Chart of the week"
         print(f"\nChart title: {chart_title}")
 
-        chart_image = input("Enter chart image URL or local file path (will be uploaded to HubSpot): ").strip()
+        # Get and validate chart image
+        chart_image = ''
+        while not chart_image:
+            user_input = input("Enter chart image URL or local file path (will be uploaded to HubSpot): ").strip()
+            if not user_input:
+                print("  Chart image is required. Please enter a URL or file path.")
+                continue
+            chart_image = self._validate_image_url(user_input)
+            if not chart_image:
+                print("  Invalid URL or path. Please try again.")
 
         # Generate chart text
         chart_text = self.content_generator.generate_chart_text(
@@ -430,7 +504,17 @@ class NewsletterAgent:
             print("\n✓ Promotional banner skipped")
             return
 
-        image_url = input("\nEnter banner image URL or local file path: ").strip()
+        # Get and validate banner image
+        image_url = ''
+        while not image_url:
+            user_input = input("\nEnter banner image URL or local file path: ").strip()
+            if not user_input:
+                print("  Banner image is required. Please enter a URL or file path.")
+                continue
+            image_url = self._validate_image_url(user_input)
+            if not image_url:
+                print("  Invalid URL or path. Please try again.")
+
         link_url = input("Enter banner link URL (e.g., https://example.com): ").strip()
 
         # Ensure link URL has protocol
@@ -854,15 +938,27 @@ class NewsletterAgent:
         company_linkedin = input("  Company LinkedIn URL: ").strip()
 
         # Use YouTube thumbnail automatically
-        thumbnail = episode.get('thumbnail', '')
+        thumbnail = self._validate_image_url(episode.get('thumbnail', ''))
         if thumbnail:
             print(f"\n  ✓ Using YouTube thumbnail: {thumbnail[:60]}...")
             print("    (Enter custom URL/path to override, or press Enter to keep)")
             custom_thumb = input("    Custom thumbnail: ").strip()
             if custom_thumb:
-                thumbnail = custom_thumb
+                validated = self._validate_image_url(custom_thumb)
+                if validated:
+                    thumbnail = validated
+                else:
+                    print("    Keeping YouTube thumbnail instead.")
         else:
-            thumbnail = input("  Thumbnail URL or local path: ").strip()
+            print("\n  No YouTube thumbnail found.")
+            while not thumbnail:
+                user_input = input("  Thumbnail URL or local path: ").strip()
+                if not user_input:
+                    print("    Thumbnail is required. Please enter a URL or file path.")
+                    continue
+                thumbnail = self._validate_image_url(user_input)
+                if not thumbnail:
+                    print("    Invalid URL or path. Please try again.")
 
         # Generate combined description (intro + extended in one step)
         print("\nGenerating podcast description...")
@@ -1032,9 +1128,24 @@ class NewsletterAgent:
 
         print(f"\n  Metadata saved to: {meta_file}")
 
-        # Option to copy to clipboard
-        print("\nCopy HTML to clipboard?")
-        print("1. Yes")
+        # HubSpot publishing - returns updated HTML with HubSpot image URLs
+        final_html = self._step_hubspot_publish(html, metadata)
+
+        # If HubSpot was used and returned updated HTML, use that; otherwise use original
+        if final_html:
+            html = final_html
+            # Verify the HTML has HubSpot URLs
+            hubspot_url_count = html.count('hubspotusercontent')
+            modoenergy_url_count = html.count('modoenergy.com/post_images')
+            local_path_count = html.count('/Users/')
+            print(f"\n✓ Using HTML with HubSpot-hosted image URLs")
+            print(f"  - HubSpot URLs found: {hubspot_url_count}")
+            print(f"  - modoenergy.com URLs remaining: {modoenergy_url_count}")
+            print(f"  - Local file paths remaining: {local_path_count}")
+
+        # Copy final HTML to clipboard
+        print("\nCopy final HTML to clipboard?")
+        print("1. Yes (recommended)")
         print("2. No")
 
         choice = self._get_choice(2)
@@ -1047,14 +1158,15 @@ class NewsletterAgent:
             except Exception as e:
                 print(f"\nCould not copy to clipboard: {e}")
 
-        # HubSpot publishing option
-        self._step_hubspot_publish(html, metadata)
+    def _step_hubspot_publish(self, html: str, metadata: Dict) -> str:
+        """Optional: Publish newsletter to HubSpot.
 
-    def _step_hubspot_publish(self, html: str, metadata: Dict):
-        """Optional: Publish newsletter to HubSpot."""
+        Returns:
+            Updated HTML with HubSpot image URLs, or None if skipped/failed
+        """
         if not HUBSPOT_AVAILABLE:
             print("\n[HubSpot integration not available]")
-            return
+            return None
 
         print("\n" + "-" * 40)
         print("HUBSPOT PUBLISHING")
@@ -1069,7 +1181,7 @@ class NewsletterAgent:
 
         if choice == 3:
             print("\n✓ HubSpot publishing skipped")
-            return
+            return None
 
         try:
             hubspot = HubSpotIntegration()
@@ -1078,6 +1190,7 @@ class NewsletterAgent:
             region_config = self.REGION_CONFIG.get(self.selected_region, {})
             hubspot.settings['include_lists'] = region_config.get('include_lists', [])
             hubspot.settings['exclude_lists'] = region_config.get('exclude_lists', [])
+            hubspot.settings['exclude_emails'] = region_config.get('exclude_emails', [])
             hubspot.settings['from_name'] = region_config.get('from_name', hubspot.settings['from_name'])
             hubspot.settings['from_email'] = region_config.get('from_email', hubspot.settings['from_email'])
             hubspot.settings['image_folder'] = region_config.get('image_folder', hubspot.settings['image_folder'])
@@ -1095,8 +1208,11 @@ class NewsletterAgent:
             if result:
                 print(f"\n✓ Email draft created in HubSpot!")
                 print(f"  Email ID: {result.get('id')}")
+                # Return the updated HTML with HubSpot image URLs
+                return result.get('_updated_html', html)
             else:
                 print("\n✗ Failed to publish to HubSpot")
+                return None
 
         except FileNotFoundError as e:
             print(f"\n✗ HubSpot credential not found: {e}")
