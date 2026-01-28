@@ -31,12 +31,15 @@ from typing import Dict, List, Optional
 from datetime import datetime
 import json
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 
 class HubSpotIntegration:
     """HubSpot API integration for newsletter publishing."""
 
     BASE_URL = "https://api.hubapi.com"
-    CREDENTIAL_PATH = os.path.expanduser("~/Desktop/hubspot-credential")
 
     # Modo Energy HubSpot portal ID
     PORTAL_ID = "25093280"
@@ -62,18 +65,15 @@ class HubSpotIntegration:
         self.settings = self.DEFAULT_SETTINGS.copy()
 
     def _load_token(self) -> str:
-        """Load HubSpot token from credential file."""
-        if not os.path.exists(self.CREDENTIAL_PATH):
-            raise FileNotFoundError(
-                f"HubSpot credential not found at {self.CREDENTIAL_PATH}\n"
-                "Run: python3 ~/Desktop/save_hubspot_credential.py"
-            )
-
-        with open(self.CREDENTIAL_PATH, 'r') as f:
-            token = f.read().strip()
+        """Load HubSpot token from .env file."""
+        token = os.getenv('HUBSPOT_API_TOKEN')
 
         if not token:
-            raise ValueError("HubSpot credential file is empty")
+            raise FileNotFoundError(
+                "HUBSPOT_API_TOKEN not found in environment.\n"
+                "Add it to your .env file:\n"
+                "HUBSPOT_API_TOKEN=your-token-here"
+            )
 
         return token
 
