@@ -1,5 +1,7 @@
 # Weekly Dispatch - US Edition
 
+*Last updated: February 4, 2026*
+
 Forked from the Modo Energy Weekly Dispatch newsletter tool, customized for North American markets.
 
 ## Markets Covered
