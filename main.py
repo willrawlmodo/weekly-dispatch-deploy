@@ -6,6 +6,7 @@ Interactive CLI tool to generate the Modo Energy Weekly Dispatch newsletter.
 """
 
 import os
+import re
 import sys
 from pathlib import Path
 from datetime import datetime
@@ -212,14 +213,14 @@ class NewsletterAgent:
         # Step 3: Generate intro/preview text
         self._step_intro_text()
 
-        # Step 4: Chart of the week
+        # Step 4: This week's news
+        self._step_news_section()
+
+        # Step 5: Chart of the week
         self._step_chart_of_week()
 
-        # Step 5: Promotional banner
+        # Step 6: Promotional banner
         self._step_promotional_banner()
-
-        # Step 6: This week's news
-        self._step_news_section()
 
         # Step 7: Podcast section
         self._step_podcast()
@@ -260,8 +261,12 @@ class NewsletterAgent:
 
         # Store region in content for assembler
         self.content['region'] = self.selected_region
+        self.content['region_name'] = region_config['name']
         self.content['header_url'] = region_config['header_url']
         self.content['header_alt'] = region_config['header_alt']
+
+        # Set region on content generator for localized content
+        self.content_generator.set_region(self.selected_region)
 
         print(f"  Header banner: {region_config['name']}")
         print(f"  Default article source: {region_config['article_region']}")
@@ -414,7 +419,7 @@ class NewsletterAgent:
 
     def _step_chart_of_week(self):
         """Step 4: Chart of the week."""
-        print("\n[STEP 4/9] CHART OF THE WEEK")
+        print("\n[STEP 5/9] CHART OF THE WEEK")
         print("-" * 40)
 
         articles = self.content.get('featured_articles', [])
@@ -492,7 +497,7 @@ class NewsletterAgent:
 
     def _step_promotional_banner(self):
         """Step 5: Promotional banner."""
-        print("\n[STEP 5/9] PROMOTIONAL BANNER")
+        print("\n[STEP 6/9] PROMOTIONAL BANNER")
         print("-" * 40)
 
         print("\nInclude a promotional banner? (e.g., event, announcement)")
@@ -558,7 +563,7 @@ class NewsletterAgent:
 
     def _step_news_section(self):
         """Step 6: This week's news."""
-        print("\n[STEP 6/9] THIS WEEK'S NEWS")
+        print("\n[STEP 4/9] THIS WEEK'S NEWS")
         print("-" * 40)
 
         # Get default region from newsletter selection
@@ -717,23 +722,32 @@ class NewsletterAgent:
 
             # Try to detect specific country from source or title
             country_detected = None
+            # IMPORTANT: Check Australia BEFORE UK to avoid 'wales' matching 'New South Wales'
             country_keywords = {
+                'australia': ['australia', 'australian', 'nem', 'wem', 'aemo', 'queensland', 'new south wales', 'nsw', 'victoria', 'south australia', 'western australia', 'tasmania'],
                 'germany': ['german', 'germany', 'deutschland'],
                 'uk': ['uk', 'british', 'britain', 'england', 'scotland', 'wales'],
                 'spain': ['spain', 'spanish', 'españa'],
                 'italy': ['italy', 'italian', 'italia'],
                 'france': ['france', 'french'],
-                'us': ['us', 'usa', 'american', 'united states', 'california', 'texas', 'ercot', 'caiso', 'miso'],
-                'australia': ['australia', 'australian', 'nem', 'wem', 'aemo']
+                'us': ['us', 'usa', 'american', 'united states', 'california', 'texas', 'ercot', 'caiso', 'miso']
             }
 
-            combined_text = (title + ' ' + description + ' ' + source).lower()
+            # Only check title and description for region, not source (to avoid tagging by publisher location)
+            combined_text = (title + ' ' + description).lower()
             for country, keywords in country_keywords.items():
-                if any(kw in combined_text for kw in keywords):
+                # Use word boundaries to avoid false matches (e.g., "us" in "focus", "business")
+                if any(re.search(r'\b' + re.escape(kw) + r'\b', combined_text) for kw in keywords):
                     country_detected = country
                     break
 
-            region_prefix = region_prefixes.get(country_detected or region, '')
+            # Get the region prefix, but skip it if it matches the newsletter's selected region
+            detected_region = country_detected or region
+            region_prefix = region_prefixes.get(detected_region, '')
+
+            # Don't add prefix if the news region matches the newsletter region
+            if detected_region == self.selected_region:
+                region_prefix = ''
 
             # Try to use AI to format if available
             if self.content_generator.client:
