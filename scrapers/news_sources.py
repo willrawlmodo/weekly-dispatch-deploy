@@ -81,55 +81,9 @@ class NewsSourcesScraper:
                 }
             ],
             "us": [
-                # Primary US energy/utility sources
                 {
                     "name": "Utility Dive",
                     "rss": "https://www.utilitydive.com/feeds/news/",
-                    "category": "industry",
-                    "region": "us"
-                },
-                {
-                    "name": "PV Magazine USA",
-                    "rss": "https://pv-magazine-usa.com/feed/",
-                    "category": "industry",
-                    "region": "us"
-                },
-                {
-                    "name": "Solar Power World",
-                    "rss": "https://www.solarpowerworldonline.com/feed/",
-                    "category": "industry",
-                    "region": "us"
-                },
-                {
-                    "name": "Canary Media",
-                    "rss": "https://www.canarymedia.com/feed",
-                    "category": "industry",
-                    "region": "us"
-                },
-                # Storage-specific sources
-                {
-                    "name": "Energy Storage News",
-                    "rss": "https://www.energy-storage.news/feed/",
-                    "category": "storage",
-                    "region": "global"
-                },
-                # Policy and regulatory sources
-                {
-                    "name": "E&E News",
-                    "rss": "https://www.eenews.net/articles/feed/",
-                    "category": "policy",
-                    "region": "us"
-                },
-                # Clean energy business
-                {
-                    "name": "CleanTechnica",
-                    "rss": "https://cleantechnica.com/feed/",
-                    "category": "industry",
-                    "region": "us"
-                },
-                {
-                    "name": "Electrek",
-                    "rss": "https://electrek.co/feed/",
                     "category": "industry",
                     "region": "us"
                 }
@@ -168,9 +122,9 @@ class NewsSourcesScraper:
                     sources_to_use.extend(region_sources)
             else:
                 sources_to_use = self.sources.get(region, [])
-                # Include global sources for all regions
-                if region != "all":
-                    sources_to_use = sources_to_use + self.sources.get("global", [])
+                # Always include europe sources for the European newsletter
+                if region != "europe" and region != "all":
+                    sources_to_use = self.sources.get("europe", []) + sources_to_use
         else:
             # Legacy flat list structure
             sources_to_use = self.sources
@@ -279,24 +233,10 @@ class NewsSourcesScraper:
         ]
 
         us_keywords = [
-            # Country terms
             'us ', 'usa', 'united states', 'american',
-            # ISOs/RTOs
-            'ercot', 'caiso', 'miso', 'pjm', 'nyiso', 'iso-ne', 'iso ne', 'spp',
-            'southwest power pool', 'midcontinent', 'new york iso',
-            # Regulatory bodies
-            'ferc', 'nerc', 'doe ', 'department of energy', 'epa ',
-            # States with significant BESS activity
-            'california', 'texas', 'arizona', 'nevada', 'florida',
-            'new york', 'new jersey', 'illinois', 'ohio', 'pennsylvania',
-            'michigan', 'indiana', 'virginia', 'north carolina', 'georgia',
-            'massachusetts', 'connecticut', 'maine', 'colorado', 'new mexico',
-            # Key utilities and developers
-            'nextera', 'vistra', 'aes ', 'duke energy', 'dominion',
-            'southern company', 'entergy', 'xcel', 'pge', 'sce', 'sdge',
-            # US-specific market terms
-            'lcr', 'resource adequacy', 'ra ', 'capacity auction',
-            'interconnection queue', 'lbnl', 'nrel', 'eia '
+            'california', 'texas', 'florida', 'new york', 'arizona',
+            'ercot', 'caiso', 'miso', 'pjm', 'nyiso', 'spp', 'iso-ne',
+            'ferc', 'doe ', 'department of energy'
         ]
 
         australia_keywords = [
