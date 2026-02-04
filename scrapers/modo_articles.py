@@ -21,9 +21,11 @@ class ModoArticleScraper:
     # Region codes for Modo Terminal URL filtering
     # Note: Modo uses specific ISO/market codes, not country codes
     REGIONS = {
-        "gb_europe": "gb_de_fr_it_ib",
-        "non_europe": "ercot_caiso_miso_pjm_nyiso_isone_spp_nem_wem",  # US ISOs + Australia markets
-        "all": None  # No region filter - fetch all articles
+    "gb_europe": "gb_de_fr_it_ib",
+    "us": "ercot_caiso_miso_pjm_nyiso_isone_spp",
+    "australia": "australia_nem_wem",
+    "non_europe": "ercot_caiso_miso_pjm_nyiso_isone_spp_nem_wem",  # Keep for backwards compatibility
+    "all": None
     }
 
     # Weighted keywords for region detection

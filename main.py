@@ -111,7 +111,7 @@ class NewsletterAgent:
             "name": "Australia",
             "header_url": "https://25093280.fs1.hubspotusercontent-eu1.net/hubfs/25093280/Screenshot%202026-01-23%20at%2021.50.29.png",
             "header_alt": "MODOENERGY Weekly Dispatch Australia Edition",
-            "article_region": "non_europe",
+            "article_region": "australia",
             "news_region": "australia",
             "from_name": "Wendel from Modo Energy",
             "from_email": "wendel@modoenergy.com",
