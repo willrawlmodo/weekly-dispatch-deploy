@@ -106,17 +106,17 @@ class NewsletterAssembler:
         # 3. Featured articles wrapper
         html_parts.append(self._build_featured_articles(content.get('featured_articles', [])))
 
-        # 4. Chart of the week
+        # 4. This week's news
+        if content.get('news_items'):
+            html_parts.append(self._build_news_section(content['news_items']))
+
+        # 5. Chart of the week
         if content.get('chart'):
             html_parts.append(self._build_chart_section(content['chart']))
 
-        # 5. Promotional banner (optional)
+        # 6. Promotional banner (optional)
         if content.get('promotional_banner'):
             html_parts.append(self._build_promotional_banner(content['promotional_banner']))
-
-        # 6. This week's news
-        if content.get('news_items'):
-            html_parts.append(self._build_news_section(content['news_items']))
 
         # 7. Podcast section
         if content.get('podcast'):
@@ -127,7 +127,8 @@ class NewsletterAssembler:
             html_parts.append(self._build_world_section(content['world_articles']))
 
         # 9. Footer
-        html_parts.append(self._load_template('footer'))
+        footer_html = self._load_template('footer')
+        html_parts.append(footer_html.format(region_name=content.get('region_name', 'Europe & GB')))
 
         # Return just the content (no html/head/body wrapper - HubSpot adds those)
         return '\n\n'.join(html_parts)
@@ -209,13 +210,17 @@ class NewsletterAssembler:
         article1_html = half_template.format(
             article_url=article1.get('url', ''),
             thumbnail_url=article1.get('thumbnail_url', ''),
-            article_title=article1.get('title', '')
+            article_title=article1.get('title', ''),
+            mso_padding='0 12px 0 0',
+            padding='0 6px 0 0'
         )
 
         article2_html = half_template.format(
             article_url=article2.get('url', ''),
             thumbnail_url=article2.get('thumbnail_url', ''),
-            article_title=article2.get('title', '')
+            article_title=article2.get('title', ''),
+            mso_padding='0',
+            padding='0 0 0 6px'
         )
 
         # Side-by-side wrapper with MSO support
@@ -223,19 +228,15 @@ class NewsletterAssembler:
 <tr>
   <td align="center" style="padding:0 24px 24px;">
     <!--[if mso]>
-    <table role="presentation" width="552" cellpadding="0" cellspacing="0" border="0">
+    <table role="presentation" width="512" cellpadding="0" cellspacing="0" border="0">
     <tr>
     <![endif]-->
     <!--[if !mso]><!-->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:512px;">
       <tr>
     <!--<![endif]-->
 
         {article1}
-
-        <!--[if mso]>
-        <td width="24" style="padding:0;">&nbsp;</td>
-        <![endif]-->
 
         {article2}
 
