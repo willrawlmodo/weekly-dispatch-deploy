@@ -19,20 +19,26 @@ load_dotenv()
 class ContentGenerator:
     """AI-powered content generator for newsletter sections."""
 
-    # Example subject lines for style reference
+    # Example subject lines for style reference (US-focused)
     SUBJECT_EXAMPLES = [
         "Record temperatures drive battery revenues",
         "Surging BESS",
         "Battery revenues reach near two-year lows",
         "Best of BESS 2025",
-        "Contract stacking hits the mainstream",
-        "Mild volatility, mild NEM battery revenues",
-        "Five things you should consider when investing in BESS",
-        "Germany's grid fees reshape BESS economics",
+        "ERCOT's interconnection queue hits 200 GW",
+        "Winter storm tests Texas grid resilience",
+        "MISO capacity auction clears at record highs",
+        "CAISO curtailment reaches new peaks",
+        "PJM queue reforms reshape developer strategy",
+        "NYISO transmission constraints drive BESS value",
+        "FERC Order 2023 accelerates storage deployment",
+        "Interconnection backlogs delay 50 GW of storage",
         "Renewable curtailment at record highs",
         "Storage revenues climb in Q4",
         "New market rules favor flexible assets",
-        "BESS capacity doubles in six months"
+        "BESS capacity doubles in six months",
+        "Extreme weather boosts ancillary service revenues",
+        "IRA incentives reshape project economics"
     ]
 
     def __init__(self, api_key: Optional[str] = None):
