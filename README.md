@@ -18,30 +18,35 @@ Forked from the Modo Energy Weekly Dispatch newsletter tool, customized for Nort
 
 ### 1. Install Dependencies
 ```bash
-cd /Users/williamrawlings/Documents/GitHub/weekly-dispatch-usa
+git clone https://github.com/YOUR_USERNAME/weekly-dispatch-usa.git
+cd weekly-dispatch-usa
 pip install -r requirements.txt
 ```
 
 ### 2. Configure API Keys
 
-**OpenAI** (already configured in `.env`):
+Create a `.env` file in the repo root:
 ```
 OPENAI_API_KEY=your-key-here
 ```
 
-**HubSpot** (already configured at `~/Desktop/hubspot-credential`):
+Create a HubSpot credential file at `~/Desktop/hubspot-credential`:
 ```
 pat-eu1-xxxx-xxxx-xxxx
 ```
 
+Contact Will for API keys if needed.
+
 ### 3. Configure Slack (Optional)
-Set environment variables for Slack notifications when HubSpot drafts are created:
-```bash
-export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/xxx/xxx/xxx"
-export SLACK_CHANNEL="#weekly-dispatch"
+Add to your `.env` file for Slack notifications when HubSpot drafts are created:
+```
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx/xxx/xxx
+SLACK_CHANNEL=#weekly-dispatch-drafts
 ```
 
-To create a webhook:
+Notifications go to #weekly-dispatch-drafts (private channel). Contact Will for access.
+
+To create your own webhook:
 1. Go to api.slack.com/apps → Create New App
 2. Add "Incoming Webhooks" feature
 3. Activate and create webhook for your channel
