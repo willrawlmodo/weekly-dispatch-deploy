@@ -5,3 +5,8 @@ lxml>=4.9.0
 python-dotenv>=1.0.0
 openai>=1.0.0  # For AI content generation (subject lines, preview text)
 feedparser>=6.0.0  # For RSS news aggregation
+
+# Web GUI (needed for Render deployment)
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
