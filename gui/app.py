@@ -660,13 +660,16 @@ def open_browser():
 
 
 if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
+
     print("\n  ╔══════════════════════════════════════════╗")
     print("  ║   MODO ENERGY WEEKLY DISPATCH — GUI      ║")
     print("  ╠══════════════════════════════════════════╣")
-    print("  ║   http://localhost:8000                  ║")
+    print(f"  ║   http://localhost:{port}                  ║")
     print("  ╚══════════════════════════════════════════╝\n")
 
-    # Open browser in background thread
-    threading.Thread(target=open_browser, daemon=True).start()
+    # Only open browser locally (Render/cloud sets PORT env var)
+    if not os.getenv("RENDER"):
+        threading.Thread(target=open_browser, daemon=True).start()
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
