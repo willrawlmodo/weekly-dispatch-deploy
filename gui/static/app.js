@@ -9,6 +9,7 @@ const App = {
     // ── State ──────────────────────────────────────────────
     currentStep: 'region',
     selectedArticleIndices: new Set(),
+    selectedMoreArticleIndices: new Set(),
     selectedNewsIndices: new Set(),
     selectedWorldIndices: new Set(),
     selectedPodcastIndex: -1,
@@ -28,7 +29,7 @@ const App = {
         if (!res.ok) {
             const msg = data.detail || data.error || 'API error';
             console.error(`API ${method} ${path}:`, msg);
-            alert(`Error: ${msg}`);
+            this.showToast(`Error: ${msg}`, 'error', 4000);
             throw new Error(msg);
         }
         return data;
@@ -50,7 +51,7 @@ const App = {
     },
 
     nextStep() {
-        const order = ['region','articles','subject','intro','news','chart','banner','podcast','world','assemble'];
+        const order = ['region','articles','subject','intro','news','chart','more-articles','banner','podcast','world','assemble'];
         const idx = order.indexOf(this.currentStep);
         if (idx < order.length - 1) {
             this.showStep(order[idx + 1]);
@@ -72,7 +73,15 @@ const App = {
 
     // ── Preview ────────────────────────────────────────────
 
-    async refreshPreview() {
+    _previewTimer: null,
+
+    refreshPreview() {
+        // Debounce preview refreshes to avoid blocking UI
+        clearTimeout(this._previewTimer);
+        this._previewTimer = setTimeout(() => this._doRefreshPreview(), 500);
+    },
+
+    async _doRefreshPreview() {
         try {
             const data = await this.api('GET', '/api/preview');
             const frame = document.getElementById('previewFrame');
@@ -92,6 +101,21 @@ const App = {
     setVisible(id, visible) {
         const el = document.getElementById(id);
         if (el) el.classList.toggle('hidden', !visible);
+    },
+
+    // ── Toast notifications ──────────────────────────────
+
+    showToast(message, type = 'success', duration = 2500) {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.add('fade-out');
+            toast.addEventListener('animationend', () => toast.remove());
+        }, duration);
     },
 
     // ═══════════════════════════════════════════════════════
@@ -183,10 +207,11 @@ const App = {
     async confirmArticles() {
         const indices = [...this.selectedArticleIndices];
         const numLayout = parseInt(document.getElementById('articleLayout').value, 10);
-        if (indices.length === 0) { alert('Select at least one article.'); return; }
+        if (indices.length === 0) { this.showToast('Select at least one article.', 'error'); return; }
 
         await this.api('POST', '/api/step/articles/select', { indices, num_layout: numLayout });
         document.getElementById('status-featured_articles').classList.add('done');
+        this.showToast(`${indices.length} article${indices.length > 1 ? 's' : ''} confirmed`);
         this.refreshPreview();
         this.nextStep();
     },
@@ -227,10 +252,11 @@ const App = {
 
     async confirmSubject() {
         const subject = document.getElementById('subjectInput').value.trim();
-        if (!subject) { alert('Enter or select a subject line.'); return; }
+        if (!subject) { this.showToast('Enter or select a subject line.', 'error'); return; }
 
         await this.api('POST', '/api/step/subject/select', { subject });
         document.getElementById('status-subject_line').classList.add('done');
+        this.showToast('Subject line confirmed');
         this.refreshPreview();
         this.nextStep();
     },
@@ -255,10 +281,11 @@ const App = {
 
     async confirmIntro() {
         const text = document.getElementById('introInput').value.trim();
-        if (!text) { alert('Generate or enter intro text.'); return; }
+        if (!text) { this.showToast('Generate or enter intro text.', 'error'); return; }
 
         await this.api('POST', '/api/step/intro/select', { intro_text: text });
         document.getElementById('status-intro_text').classList.add('done');
+        this.showToast('Intro text confirmed');
         this.refreshPreview();
         this.nextStep();
     },
@@ -303,13 +330,16 @@ const App = {
             this.selectedNewsIndices.delete(index);
         } else {
             if (this.selectedNewsIndices.size >= 4) {
-                alert('Max 4 news items. Deselect one first.');
+                this.showToast('Max 4 news items. Deselect one first.', 'error');
                 return;
             }
             this.selectedNewsIndices.add(index);
         }
         const card = document.querySelector(`#newsList .card[data-index="${index}"]`);
         if (card) card.classList.toggle('selected', this.selectedNewsIndices.has(index));
+        // Update selection hint
+        const hint = document.getElementById('newsSelectionHint');
+        if (hint) hint.textContent = `${this.selectedNewsIndices.size} of 4 selected`;
     },
 
     addCustomNewsUrl() {
@@ -319,18 +349,28 @@ const App = {
 
         this.customNewsUrls.push(url);
         input.value = '';
+        this.renderCustomNewsTags();
+    },
 
+    removeCustomUrl(index) {
+        this.customNewsUrls.splice(index, 1);
+        this.renderCustomNewsTags();
+    },
+
+    renderCustomNewsTags() {
         const container = document.getElementById('customNewsList');
-        const tag = document.createElement('div');
-        tag.className = 'custom-url-tag';
-        tag.textContent = url;
-        container.appendChild(tag);
+        container.innerHTML = this.customNewsUrls.map((url, i) => `
+            <div class="custom-url-tag">
+                <span class="url-text">${this.esc(url)}</span>
+                <button class="url-remove" onclick="App.removeCustomUrl(${i})" title="Remove">&times;</button>
+            </div>
+        `).join('');
     },
 
     async confirmNews() {
         const indices = [...this.selectedNewsIndices];
         if (indices.length === 0 && this.customNewsUrls.length === 0) {
-            alert('Select at least one news item or add a custom URL.');
+            this.showToast('Select at least one news item or add a custom URL.', 'error');
             return;
         }
 
@@ -339,6 +379,7 @@ const App = {
             custom_urls: this.customNewsUrls,
         });
         document.getElementById('status-news_section').classList.add('done');
+        this.showToast('News section confirmed');
         this.refreshPreview();
         this.nextStep();
     },
@@ -363,7 +404,7 @@ const App = {
     async generateChartText() {
         const sourceIdx = parseInt(document.getElementById('chartSourceArticle').value, 10) || 0;
         const imageUrl = document.getElementById('chartImage').value.trim();
-        if (!imageUrl) { alert('Enter a chart image URL or path.'); return; }
+        if (!imageUrl) { this.showToast('Enter a chart image URL or path.', 'error'); return; }
 
         this.setLoading('chartLoading', true);
         try {
@@ -385,7 +426,7 @@ const App = {
         const introText = document.getElementById('chartIntro').value.trim();
         const outroText = document.getElementById('chartOutro').value.trim();
 
-        if (!imageUrl) { alert('Enter a chart image URL.'); return; }
+        if (!imageUrl) { this.showToast('Enter a chart image URL.', 'error'); return; }
 
         await this.api('POST', '/api/step/chart/select', {
             source_article_index: sourceIdx,
@@ -395,6 +436,7 @@ const App = {
             skip: false,
         });
         document.getElementById('status-chart').classList.add('done');
+        this.showToast('Chart confirmed');
         this.refreshPreview();
         this.nextStep();
     },
@@ -410,6 +452,76 @@ const App = {
     },
 
     // ═══════════════════════════════════════════════════════
+    //  STEP 5b: MORE ARTICLES
+    // ═══════════════════════════════════════════════════════
+
+    async fetchMoreArticles() {
+        this.setLoading('moreArticlesLoading', true);
+        this.selectedMoreArticleIndices.clear();
+        document.getElementById('moreArticlesList').innerHTML = '';
+        this.setVisible('confirmMoreArticles', false);
+
+        const days = parseInt(document.getElementById('moreArticlesDays').value, 10) || 14;
+
+        try {
+            const data = await this.api('GET', `/api/step/more-articles/fetch?days=${days}`);
+            this.renderMoreArticleCards(data.articles);
+        } finally {
+            this.setLoading('moreArticlesLoading', false);
+        }
+    },
+
+    renderMoreArticleCards(articles) {
+        const container = document.getElementById('moreArticlesList');
+        container.innerHTML = articles.map(a => `
+            <div class="card" data-index="${a.index}" onclick="App.toggleMoreArticle(${a.index})">
+                <div class="card-check"></div>
+                ${a.thumbnail_url ? `<img class="card-thumb" src="${a.thumbnail_url}" alt="" />` : ''}
+                <div class="card-body">
+                    <strong>${this.esc(a.title)}</strong>
+                    <span class="card-meta">${this.formatDate(a.date)}</span>
+                    <p>${this.esc(a.description || '')}</p>
+                </div>
+            </div>
+        `).join('');
+        this.setVisible('confirmMoreArticles', true);
+    },
+
+    toggleMoreArticle(index) {
+        if (this.selectedMoreArticleIndices.has(index)) {
+            this.selectedMoreArticleIndices.delete(index);
+        } else {
+            if (this.selectedMoreArticleIndices.size >= 10) {
+                this.showToast('Max 10 articles. Deselect one first.', 'error');
+                return;
+            }
+            this.selectedMoreArticleIndices.add(index);
+        }
+        const card = document.querySelector(`#moreArticlesList .card[data-index="${index}"]`);
+        if (card) card.classList.toggle('selected', this.selectedMoreArticleIndices.has(index));
+        // Update hint
+        const hint = document.getElementById('moreArticlesSelectionHint');
+        if (hint) hint.textContent = `${this.selectedMoreArticleIndices.size} of 10 selected`;
+    },
+
+    async confirmMoreArticles() {
+        const indices = [...this.selectedMoreArticleIndices];
+        if (indices.length === 0) { this.showToast('Select at least one article, or click Skip.', 'error'); return; }
+
+        await this.api('POST', '/api/step/more-articles/select', { indices, skip: false });
+        document.getElementById('status-more_articles').classList.add('done');
+        this.showToast(`${indices.length} more article${indices.length > 1 ? 's' : ''} confirmed`);
+        this.refreshPreview();
+        this.nextStep();
+    },
+
+    async skipMoreArticles() {
+        await this.api('POST', '/api/step/more-articles/select', { indices: [], skip: true });
+        document.getElementById('status-more_articles').classList.add('done');
+        this.nextStep();
+    },
+
+    // ═══════════════════════════════════════════════════════
     //  STEP 6: PROMOTIONAL BANNER
     // ═══════════════════════════════════════════════════════
 
@@ -418,7 +530,7 @@ const App = {
         const link = document.getElementById('bannerLink').value.trim();
         const altText = document.getElementById('bannerAlt').value.trim();
 
-        if (!imageUrl) { alert('Enter a banner image URL, or click Skip.'); return; }
+        if (!imageUrl) { this.showToast('Enter a banner image URL, or click Skip.', 'error'); return; }
 
         await this.api('POST', '/api/step/banner/select', {
             image_url: imageUrl,
@@ -427,6 +539,7 @@ const App = {
             skip: false,
         });
         document.getElementById('status-banner').classList.add('done');
+        this.showToast('Banner confirmed');
         this.refreshPreview();
         this.nextStep();
     },
@@ -487,7 +600,7 @@ const App = {
     },
 
     async confirmPodcast() {
-        if (this.selectedPodcastIndex < 0) { alert('Select a podcast episode.'); return; }
+        if (this.selectedPodcastIndex < 0) { this.showToast('Select a podcast episode.', 'error'); return; }
 
         const body = {
             episode_index: this.selectedPodcastIndex,
@@ -501,6 +614,7 @@ const App = {
 
         await this.api('POST', '/api/step/podcast/select', body);
         document.getElementById('status-podcast').classList.add('done');
+        this.showToast('Podcast confirmed');
         this.refreshPreview();
         this.nextStep();
     },
@@ -545,21 +659,25 @@ const App = {
             this.selectedWorldIndices.delete(index);
         } else {
             if (this.selectedWorldIndices.size >= 3) {
-                alert('Select exactly 3 world articles. Deselect one first.');
+                this.showToast('Max 3 world articles. Deselect one first.', 'error');
                 return;
             }
             this.selectedWorldIndices.add(index);
         }
         const card = document.querySelector(`#worldList .card[data-index="${index}"]`);
         if (card) card.classList.toggle('selected', this.selectedWorldIndices.has(index));
+        // Update selection hint
+        const hint = document.getElementById('worldSelectionHint');
+        if (hint) hint.textContent = `${this.selectedWorldIndices.size} of 3 selected`;
     },
 
     async confirmWorld() {
         const indices = [...this.selectedWorldIndices];
-        if (indices.length === 0) { alert('Select at least one world article.'); return; }
+        if (indices.length === 0) { this.showToast('Select at least one world article.', 'error'); return; }
 
         await this.api('POST', '/api/step/world/select', { indices });
         document.getElementById('status-world_articles').classList.add('done');
+        this.showToast(`${indices.length} world article${indices.length > 1 ? 's' : ''} confirmed`);
         this.refreshPreview();
         this.nextStep();
     },
@@ -616,7 +734,7 @@ const App = {
     async saveCheckpoint() {
         try {
             const data = await this.api('POST', '/api/checkpoint/save');
-            alert('Progress saved.');
+            this.showToast('Progress saved');
         } catch (e) { /* already alerted by api() */ }
     },
 
@@ -625,6 +743,7 @@ const App = {
         await this.api('POST', '/api/reset');
         // Clear local state
         this.selectedArticleIndices.clear();
+        this.selectedMoreArticleIndices.clear();
         this.selectedNewsIndices.clear();
         this.selectedWorldIndices.clear();
         this.selectedPodcastIndex = -1;
@@ -714,6 +833,7 @@ const App = {
                     intro_text: 'intro',
                     news_section: 'news',
                     chart: 'chart',
+                    more_articles: 'more-articles',
                     banner: 'banner',
                     podcast: 'podcast',
                     world_articles: 'world',

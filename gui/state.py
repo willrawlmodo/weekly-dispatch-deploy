@@ -149,6 +149,13 @@ class SessionState:
         self.content["podcast"] = podcast
         self._mark_complete("podcast")
 
+    def set_more_articles(self, articles: List[Dict]):
+        self.content["more_articles"] = articles
+        self._mark_complete("more_articles")
+
+    def skip_more_articles(self):
+        self._mark_complete("more_articles")
+
     def set_world_articles(self, articles: List[Dict]):
         self.content["world_articles"] = articles
         self._mark_complete("world_articles")

@@ -372,6 +372,62 @@ async def select_chart(body: ChartSubmit):
 
 
 # ═══════════════════════════════════════════════════════════
+#  STEP 5b: MORE ARTICLES (additional articles after chart)
+# ═══════════════════════════════════════════════════════════
+
+class MoreArticlesSelect(BaseModel):
+    indices: List[int]
+    skip: bool = False
+
+
+@app.get("/api/step/more-articles/fetch")
+async def fetch_more_articles(days: int = 14):
+    """Fetch articles for the 'More from Modo Energy' section, excluding featured."""
+    config = REGION_CONFIG.get(state.region, {})
+    region = config.get("article_region", "us")
+
+    articles = modo_scraper.get_articles(region=region, days=days, limit=30)
+
+    # Exclude already-selected featured articles
+    featured_slugs = {a.get('slug') for a in state.content.get('featured_articles', [])}
+    articles = [a for a in articles if a.get('slug') not in featured_slugs]
+
+    state._more_article_cache = articles
+
+    return {
+        "articles": [
+            {
+                "index": i,
+                "title": a.get("title", ""),
+                "date": a.get("date", ""),
+                "url": a.get("url", ""),
+                "description": a.get("description", ""),
+                "thumbnail_url": a.get("thumbnail_url", ""),
+            }
+            for i, a in enumerate(articles)
+        ],
+        "count": len(articles),
+    }
+
+
+@app.post("/api/step/more-articles/select")
+async def select_more_articles(body: MoreArticlesSelect):
+    """Save additional article selections (or skip)."""
+    if body.skip:
+        state.skip_more_articles()
+        return {"status": "skipped"}
+
+    selected = []
+    cache = getattr(state, '_more_article_cache', [])
+    for idx in body.indices:
+        if 0 <= idx < len(cache):
+            selected.append(cache[idx])
+
+    state.set_more_articles(selected[:10])
+    return {"status": "saved", "count": len(selected[:10])}
+
+
+# ═══════════════════════════════════════════════════════════
 #  STEP 6: PROMOTIONAL BANNER
 # ═══════════════════════════════════════════════════════════
 

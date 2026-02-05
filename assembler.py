@@ -118,6 +118,10 @@ class NewsletterAssembler:
         if extra_articles:
             html_parts.append(self._build_extra_articles(extra_articles))
 
+        # 5b. More articles (additional articles selected after chart, inline layout)
+        if content.get('more_articles'):
+            html_parts.append(self._build_more_articles(content['more_articles']))
+
         # 6. This week's news
         if content.get('news_items'):
             html_parts.append(self._build_news_section(content['news_items']))
@@ -368,6 +372,47 @@ class NewsletterAssembler:
             podcast_title=podcast.get('title', ''),
             podcast_description=podcast.get('description', '')
         )
+
+    def _build_more_articles(self, articles: List[Dict]) -> str:
+        """Build the 'More from Modo Energy' section (compact inline list).
+
+        Uses the same layout as world articles — 80px thumbnail + title per row.
+        Placed after the chart of the week and any extra featured articles.
+        """
+        if not articles:
+            return ''
+
+        item_template = self._load_template('world_article_item')
+
+        items_html = []
+        for article in articles[:10]:
+            html = item_template.format(
+                article_url=article.get('url', ''),
+                thumbnail_url=article.get('thumbnail_url', ''),
+                article_title=article.get('title', '')
+            )
+            items_html.append(html)
+
+        return '''<!-- MORE ARTICLES -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse; background-color:#ffffff;">
+  <tr>
+    <td align="center" style="padding:0;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+             style="max-width:600px; border-collapse:collapse; font-family:Arial,sans-serif; color:#000000;">
+
+        <!-- Section heading -->
+        <tr>
+          <td style="padding:16px 24px 12px; font-size:16px; font-weight:700; font-family:Arial,sans-serif; color:#000000;">
+            More from Modo Energy
+          </td>
+        </tr>
+
+        {rows}
+
+      </table>
+    </td>
+  </tr>
+</table>'''.format(rows='\n'.join(items_html))
 
     def _build_world_section(self, articles: List[Dict]) -> str:
         """Build the More from Around the World section."""

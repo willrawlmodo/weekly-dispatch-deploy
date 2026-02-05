@@ -586,6 +586,11 @@ class NewsletterAgent:
             self._step_chart_of_week()
             self._mark_step_complete('chart')
 
+        # Step 5b: More articles (additional articles after chart)
+        if not self._should_skip_step('more_articles'):
+            self._step_more_articles()
+            self._mark_step_complete('more_articles')
+
         # Step 6: Promotional banner
         if not self._should_skip_step('banner'):
             self._step_promotional_banner()
@@ -886,6 +891,67 @@ class NewsletterAgent:
         }
 
         print("\n✓ Chart of the week configured")
+
+    def _step_more_articles(self):
+        """Step 5b: Additional articles after chart of the week."""
+        print("\n[STEP 5b] MORE ARTICLES")
+        print("-" * 40)
+        print("Add more articles below the chart? These render in a compact inline list.")
+        print("1. Yes, fetch and select articles")
+        print("2. No, skip this section")
+
+        if self._get_choice(2) == 2:
+            print("\n✓ Skipped more articles")
+            return
+
+        region_config = self.REGION_CONFIG[self.selected_region]
+        article_region = region_config['article_region']
+
+        days_input = input("\nHow many days to look back? (default: 14): ").strip()
+        more_days = int(days_input) if days_input.isdigit() and int(days_input) > 0 else 14
+
+        print(f"\nFetching articles from the last {more_days} days...")
+        articles = self.modo_scraper.get_articles(region=article_region, days=more_days, limit=20)
+
+        # Exclude articles already selected as featured
+        featured_slugs = {a.get('slug') for a in self.content.get('featured_articles', [])}
+        articles = [a for a in articles if a.get('slug') not in featured_slugs]
+
+        if not articles:
+            print("No additional articles found.")
+            return
+
+        print(f"\nFound {len(articles)} articles (excluding featured):\n")
+        for i, article in enumerate(articles, 1):
+            date_raw = article.get('date', '')
+            try:
+                from datetime import datetime as _dt
+                date_display = _dt.strptime(date_raw, "%Y-%m-%dT%H:%M:%S%z").strftime("%b %d, %Y")
+            except (ValueError, TypeError):
+                date_display = date_raw or 'Unknown'
+            print(f"  {i}. {article['title']}")
+            print(f"     {date_display}")
+
+        print(f"\nSelect up to 10 articles (comma-separated, e.g., 1,3,5):")
+        print("Or press Enter to skip:")
+        selection = input("Your selection: ").strip()
+
+        if not selection:
+            print("\n✓ Skipped more articles")
+            return
+
+        try:
+            indices = [int(x.strip()) - 1 for x in selection.split(',')]
+            selected = [articles[i] for i in indices[:10] if 0 <= i < len(articles)]
+        except (ValueError, IndexError):
+            print("Invalid selection. Skipping.")
+            return
+
+        if selected:
+            self.content['more_articles'] = selected
+            print(f"\n✓ {len(selected)} additional article{'s' if len(selected) > 1 else ''} selected")
+        else:
+            print("\n✓ No additional articles selected")
 
     def _step_promotional_banner(self):
         """Step 5: Promotional banner."""
