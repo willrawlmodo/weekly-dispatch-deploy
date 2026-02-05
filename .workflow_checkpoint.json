@@ -1,0 +1,154 @@
+{
+  "timestamp": "2026-02-05T15:22:13.462787",
+  "selected_region": "us",
+  "completed_steps": [
+    "region",
+    "featured_articles",
+    "subject_line",
+    "intro_text",
+    "news_section",
+    "chart",
+    "banner",
+    "podcast",
+    "world_articles"
+  ],
+  "content": {
+    "region": "us",
+    "region_name": "US",
+    "header_url": "https://25093280.fs1.hubspotusercontent-eu1.net/hubfs/25093280/Screenshot%202026-01-23%20at%2021.48.06.png",
+    "header_alt": "MODOENERGY Weekly Dispatch US Edition",
+    "featured_articles": [
+      {
+        "title": "How much BESS will MISO have by 2030?",
+        "description": "Modo Energy projects 2-5 GW of BESS by 2030, up from 784 MW today. This captures just 4-10% of MISO's 49 GW queue.",
+        "url": "https://modoenergy.com/research/en/miso-bess-2030-projection",
+        "slug": "miso-bess-2030-projection",
+        "date": "2026-02-04T21:51:54+0000",
+        "thumbnail_url": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/buildout_d6f2140dcc60df03c237f89adfeb57ec.jpg",
+        "og_image": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/buildout_d6f2140dcc60df03c237f89adfeb57ec.jpg",
+        "detected_region": "us",
+        "source_type": "S",
+        "categories": [
+          "Battery Buildout",
+          "Research and Analysis"
+        ],
+        "reading_time": 6
+      },
+      {
+        "title": "ERCOT: BESS revenues are down, but what could restore them?",
+        "description": "The question isn't whether upside for batteries in ERCOT exists over fifteen-twenty years - it's bridging a two-four year gap.",
+        "url": "https://modoenergy.com/research/en/ercot-bess-revenues-outlook-load-growth-thermal-retirements-bridging-solutions",
+        "slug": "ercot-bess-revenues-outlook-load-growth-thermal-retirements-bridging-solutions",
+        "date": "2026-02-04T20:50:40+0000",
+        "thumbnail_url": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/chatgpt-image-feb-4-2026-03-46-54-pm_81ea591e8e094b3bb5bd6589edf5cc0f.png",
+        "og_image": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/chatgpt-image-feb-4-2026-03-46-54-pm_81ea591e8e094b3bb5bd6589edf5cc0f.png",
+        "detected_region": "us",
+        "source_type": "S",
+        "categories": [
+          "Market Outlook"
+        ],
+        "reading_time": 15
+      },
+      {
+        "title": "Why were ERCOT battery revenues so low in 2025?",
+        "description": "Grid-scale battery revenues are down 50% from a year ago, and are one sixth of 2023's reading. What caused this precipitous drop?",
+        "url": "https://modoenergy.com/research/en/why-were-ercot-battery-revenues-so-low-in-2025-weather-energy-arbitrage-builodout",
+        "slug": "why-were-ercot-battery-revenues-so-low-in-2025-weather-energy-arbitrage-builodout",
+        "date": "2026-02-03T18:42:23+0000",
+        "thumbnail_url": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/thumbnail-ercot-year-in-review_9ecf9d9408e2cbe656afb90168a7b6f4.jpg",
+        "og_image": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/thumbnail-ercot-year-in-review_9ecf9d9408e2cbe656afb90168a7b6f4.jpg",
+        "detected_region": "us",
+        "source_type": "S",
+        "categories": [
+          "Revenue Benchmark"
+        ],
+        "reading_time": 11
+      }
+    ],
+    "subject": "MISO projects 10 GW of BESS by 2030",
+    "intro_text": "Good morning and welcome back to the Weekly Dispatch. This week, we explore the projected growth of <a href=\"https://modoenergy.com/research/en/miso-bess-2030-projection\" style=\"color:#000000; text-decoration:underline; font-weight:bold;\">BESS capacity in MISO by 2030</a> and analyse the factors contributing to <a href=\"https://modoenergy.com/research/en/ercot-bess-revenues-outlook-load-growth-thermal-retirements-bridging-solutions\" style=\"color:#000000; text-decoration:underline; font-weight:bold;\">ERCOT's declining BESS revenues</a>.",
+    "news_items": [
+      {
+        "headline": "<a href=\"https://pv-magazine-usa.com/2026/02/05/global-bess-capacity-tops-250-gw-overtaking-pumped-hydro-for-first-time/\" style=\"color:#000000; text-decoration:none; font-weight:bold;\">In Australia, global battery energy storage system (BESS)</a>",
+        "body": ", capacity has surpassed 250 GW, overtaking pumped hydro for the first time. Rystad Energy projects BESS additions will exceed 130 GW/350 GWh in 2026, led by multiple countries including China and the United States.",
+        "url": "https://pv-magazine-usa.com/2026/02/05/global-bess-capacity-tops-250-gw-overtaking-pumped-hydro-for-first-time/",
+        "source": "PV Magazine USA",
+        "formatted_text": "In Australia, global battery energy storage system (BESS) capacity has surpassed 250 GW, overtaking pumped hydro for the first time. Rystad Energy projects BESS additions will exceed 130 GW/350 GWh in 2026, led by multiple countries including China and the United States."
+      },
+      {
+        "headline": "<a href=\"https://www.solarpowerworldonline.com/2026/02/meta-procures-another-176-mw-of-solar-to-support-data-centers/\" style=\"color:#000000; text-decoration:none; font-weight:bold;\">Meta has signed a long-term power purchase agreement</a>",
+        "body": ", with Zelestra for the entire output of the 176-MWDC Skull Creek Solar Plant in Texas. This agreement marks the seventh PPA between Meta and Zelestra, totaling 1.2 GWDC of solar capacity.",
+        "url": "https://www.solarpowerworldonline.com/2026/02/meta-procures-another-176-mw-of-solar-to-support-data-centers/",
+        "source": "Solar Power World",
+        "formatted_text": "Meta has signed a long-term power purchase agreement with Zelestra for the entire output of the 176-MWDC Skull Creek Solar Plant in Texas. This agreement marks the seventh PPA between Meta and Zelestra, totaling 1.2 GWDC of solar capacity."
+      },
+      {
+        "headline": "<a href=\"https://pv-magazine-usa.com/2026/02/02/national-lab-projects-enhanced-geothermal-cost-could-decline-to-100-mwh-by-2035/\" style=\"color:#000000; text-decoration:none; font-weight:bold;\">Enhanced geothermal costs are projected to decline to</a>",
+        "body": ", $100/MWh by 2035, increasing its competitiveness against solar plus storage. A national lab atlas indicates significant potential for enhanced geothermal deployment, primarily in the Western U.S.",
+        "url": "https://pv-magazine-usa.com/2026/02/02/national-lab-projects-enhanced-geothermal-cost-could-decline-to-100-mwh-by-2035/",
+        "source": "PV Magazine USA",
+        "formatted_text": "Enhanced geothermal costs are projected to decline to $100/MWh by 2035, increasing its competitiveness against solar plus storage. A national lab atlas indicates significant potential for enhanced geothermal deployment, primarily in the Western U.S."
+      }
+    ],
+    "chart": {
+      "title": "Chart of the week",
+      "intro_text": "Modo Energy projects 2-5 GW of battery energy storage systems (BESS) by 2030, increasing from 784 MW today. This growth represents 4-10% of MISO's 49 GW queue.",
+      "outro_text": "The expansion of BESS capacity will enhance grid reliability and support renewable integration. Market participants must adjust strategies to capitalize on these developments.",
+      "image_url": "/Users/williamrawlings/Desktop/scenario comparisons@2x.png",
+      "article_url": "https://modoenergy.com/research/en/miso-bess-2030-projection"
+    },
+    "podcast": {
+      "title": "No War, No Embargo - So Why Did LNG Prices Just Surge? (Energy Flux)",
+      "url": "https://www.youtube.com/watch?v=XVucsiGX6bo",
+      "thumbnail": "https://i9.ytimg.com/vi/XVucsiGX6bo/hqdefault_custom_2.jpg?sqp=CPD2k8wG-oaymwEjCNACELwBSFryq4qpAxUIARUAAAAAGAElAADIQj0AgKJDeAE=&rs=AOn4CLBqM4k-n-n1nCwfUH5GbrzbbNAIaA",
+      "description": "In this week's episode of Transmission, Ed is joined by <a href=\"1\" style=\"color:#000000; text-decoration:none; font-weight:bold;\">1</a> to discuss the recent surge in LNG prices. They explore the factors driving this increase, despite the absence of war or embargoes. Tune in for insights on market dynamics and future implications for the energy sector."
+    },
+    "world_articles": [
+      {
+        "title": "Who are the Spanish optimisers and how to find them",
+        "description": "A comprehensive list of battery energy storage optimisers and market representatives operating in Spain and Portugal.",
+        "url": "https://modoenergy.com/research/en/battery-energy-storage-optimizers-contact-list-iberia",
+        "slug": "battery-energy-storage-optimizers-contact-list-iberia",
+        "date": "2026-02-05T12:07:07+0000",
+        "thumbnail_url": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/url-image_20b33806617aab61ff66c5b0c2630fdb.jpeg",
+        "og_image": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/url-image_20b33806617aab61ff66c5b0c2630fdb.jpeg",
+        "detected_region": "europe",
+        "source_type": "S",
+        "categories": [
+          "Research Roundup"
+        ],
+        "reading_time": 4
+      },
+      {
+        "title": "ME BESS GB: Revenues Climb to \u00a352k/MW/Year in January 2026",
+        "description": "Battery energy storage revenues in Great Britain rose 9% to \u00a352k/MW/year in January 2026, driven by record Balancing Mechanism dispatch.",
+        "url": "https://modoenergy.com/research/en/me-bess-gb-revenues-january-2026-balancing-mechanism-wholesale-prices-gas-carbon",
+        "slug": "me-bess-gb-revenues-january-2026-balancing-mechanism-wholesale-prices-gas-carbon",
+        "date": "2026-02-04T17:30:36+0000",
+        "thumbnail_url": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/janbenchmark_7c0acf4a4b6f6b652b70bf75287a031c.jpg",
+        "og_image": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/janbenchmark_7c0acf4a4b6f6b652b70bf75287a031c.jpg",
+        "detected_region": "europe",
+        "source_type": "S",
+        "categories": [
+          "Revenue Benchmark"
+        ],
+        "reading_time": 7
+      },
+      {
+        "title": "BESS in Germany's upcoming Capacity Market: What we know so far",
+        "description": "Germany just unveiled the path into Europe's potentially largest capacity market. From this year, there will be auctions with 41 GW of capacity on offer for delivery in 2031. For BESS, the competition from gas and the yet undetermined de-rating factors will determine the economic opportunity.",
+        "url": "https://modoenergy.com/research/en/bess-in-germanys-upcoming-capacity-market-what-we-know-so-far",
+        "slug": "bess-in-germanys-upcoming-capacity-market-what-we-know-so-far",
+        "date": "2026-02-03T11:42:32+0000",
+        "thumbnail_url": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/thumbnail-capacity-market_d156def351e5d8244795fb5972c99388.jpg",
+        "og_image": "https://d37oebn0w9ir6a.cloudfront.net/account_26864/thumbnail-capacity-market_d156def351e5d8244795fb5972c99388.jpg",
+        "detected_region": "europe",
+        "source_type": "S",
+        "categories": [
+          "Policy Update"
+        ],
+        "reading_time": 8
+      }
+    ]
+  }
+}

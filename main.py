@@ -696,17 +696,27 @@ class NewsletterAgent:
         article_region = region_config['article_region']
         region_name = region_config['name']
 
-        print(f"\nFetching {region_name} articles from Modo Terminal...")
-        articles = self.modo_scraper.get_articles(region=article_region, days=7)
+        # Adjustable day filter
+        days_input = input("\nHow many days to look back? (default: 7): ").strip()
+        featured_days = int(days_input) if days_input.isdigit() and int(days_input) > 0 else 7
+
+        print(f"\nFetching {region_name} articles from the last {featured_days} days...")
+        articles = self.modo_scraper.get_articles(region=article_region, days=featured_days)
 
         if not articles:
             print("No articles found. Please enter manually.")
             articles = self._manual_article_entry(count=num_articles)
         else:
-            print(f"\nFound {len(articles)} articles from the last 7 days:\n")
+            print(f"\nFound {len(articles)} articles from the last {featured_days} days:\n")
             for i, article in enumerate(articles, 1):
+                date_raw = article.get('date', '')
+                try:
+                    from datetime import datetime as _dt
+                    date_display = _dt.strptime(date_raw, "%Y-%m-%dT%H:%M:%S%z").strftime("%b %d, %Y")
+                except (ValueError, TypeError):
+                    date_display = date_raw or 'Unknown'
                 print(f"  {i}. {article['title']}")
-                print(f"     Date: {article.get('date', 'Unknown')}")
+                print(f"     Date: {date_display}")
                 print()
 
             # Let user select articles based on chosen count
@@ -1413,27 +1423,31 @@ class NewsletterAgent:
         print("\n[STEP 8/9] MORE FROM AROUND THE WORLD")
         print("-" * 40)
 
+        # Adjustable day filter
+        days_input = input("\nHow many days to look back? (default: 14): ").strip()
+        world_days = int(days_input) if days_input.isdigit() and int(days_input) > 0 else 14
+
         # Determine which articles to show based on selected region
         if self.selected_region == "europe":
             # Europe edition: show US/Australia articles
             print("(Articles from US, Australia - NEM, WEM, MISO, ERCOT, CAISO)")
-            print("\nFetching non-Europe articles (US, Australia)...")
-            articles = self.modo_scraper.get_non_europe_articles(days=14, limit=10)
+            print(f"\nFetching non-Europe articles from the last {world_days} days...")
+            articles = self.modo_scraper.get_non_europe_articles(days=world_days, limit=10)
             world_label = "non-Europe"
         elif self.selected_region == "us":
             # US edition: show Europe and Australia articles
             print("(Articles from Europe and Australia - GB, Germany, Spain, NEM, WEM)")
-            print("\nFetching Europe & Australia articles...")
-            articles = self.modo_scraper.get_articles(region="gb_europe", days=14, limit=10)
+            print(f"\nFetching Europe & Australia articles from the last {world_days} days...")
+            articles = self.modo_scraper.get_articles(region="gb_europe", days=world_days, limit=10)
             # Also get Australia articles
-            aus_articles = self.modo_scraper.get_articles(region="australia", days=14, limit=5)
+            aus_articles = self.modo_scraper.get_articles(region="australia", days=world_days, limit=5)
             articles = articles + aus_articles
             world_label = "Europe & Australia"
         else:
             # Australia edition: show Europe and US articles
             print("(Articles from Europe and US - GB, Germany, ERCOT, MISO, CAISO)")
-            print("\nFetching Europe & US articles...")
-            articles = self.modo_scraper.get_articles(region="gb_europe", days=14, limit=10)
+            print(f"\nFetching Europe & US articles from the last {world_days} days...")
+            articles = self.modo_scraper.get_articles(region="gb_europe", days=world_days, limit=10)
             world_label = "Europe & US"
 
         if articles:

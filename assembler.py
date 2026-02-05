@@ -95,6 +95,10 @@ class NewsletterAssembler:
         """
         html_parts = []
 
+        all_articles = content.get('featured_articles', [])
+        hero_articles = all_articles[:3]
+        extra_articles = all_articles[3:]
+
         # 1. Header (with dynamic banner based on region)
         header_html = self._build_header(content)
         html_parts.append(header_html)
@@ -103,30 +107,34 @@ class NewsletterAssembler:
         intro_html = self._load_template('intro')
         html_parts.append(intro_html.format(intro_text=content.get('intro_text', '')))
 
-        # 3. Featured articles wrapper
-        html_parts.append(self._build_featured_articles(content.get('featured_articles', [])))
+        # 3. Featured articles (first 1–3, hero layout)
+        html_parts.append(self._build_featured_articles(hero_articles))
 
-        # 4. This week's news
-        if content.get('news_items'):
-            html_parts.append(self._build_news_section(content['news_items']))
-
-        # 5. Chart of the week
+        # 4. Chart of the week (always placed after hero articles)
         if content.get('chart'):
             html_parts.append(self._build_chart_section(content['chart']))
 
-        # 6. Promotional banner (optional)
+        # 5. Extra articles (4+, compact side-by-side layout)
+        if extra_articles:
+            html_parts.append(self._build_extra_articles(extra_articles))
+
+        # 6. This week's news
+        if content.get('news_items'):
+            html_parts.append(self._build_news_section(content['news_items']))
+
+        # 7. Promotional banner (optional)
         if content.get('promotional_banner'):
             html_parts.append(self._build_promotional_banner(content['promotional_banner']))
 
-        # 7. Podcast section
+        # 8. Podcast section
         if content.get('podcast'):
             html_parts.append(self._build_podcast_section(content['podcast']))
 
-        # 8. More from around the world
+        # 9. More from around the world
         if content.get('world_articles'):
             html_parts.append(self._build_world_section(content['world_articles']))
 
-        # 9. Footer
+        # 10. Footer
         footer_html = self._load_template('footer')
         html_parts.append(footer_html.format(region_name=content.get('region_name', 'Europe & GB')))
 
@@ -134,7 +142,13 @@ class NewsletterAssembler:
         return '\n\n'.join(html_parts)
 
     def _build_featured_articles(self, articles: List[Dict]) -> str:
-        """Build the featured articles section (supports 1, 2, or 3 articles)."""
+        """Build the hero featured articles section (1–3 articles).
+
+        Layout:
+        - 1 article: full-width
+        - 2 articles: two full-width stacked
+        - 3 articles: first full-width, 2nd and 3rd side-by-side
+        """
         if not articles:
             return ''
 
@@ -168,8 +182,7 @@ class NewsletterAssembler:
                 articles_html.append(html)
 
         elif num_articles >= 3:
-            # First article full-width, then two side-by-side
-            # First article (full width)
+            # First article full-width, then 2nd and 3rd side-by-side
             html = article_template.format(
                 padding="12px 24px 24px",
                 article_url=articles[0].get('url', ''),
@@ -179,7 +192,6 @@ class NewsletterAssembler:
             )
             articles_html.append(html)
 
-            # Side-by-side articles (2nd and 3rd)
             side_by_side_html = self._build_side_by_side_articles(articles[1], articles[2])
             articles_html.append(side_by_side_html)
 
@@ -252,6 +264,65 @@ class NewsletterAssembler:
 </tr>'''
 
         return wrapper.format(article1=article1_html, article2=article2_html)
+
+    def _build_extra_articles(self, articles: List[Dict]) -> str:
+        """Build extra articles (4+) in a compact side-by-side layout.
+
+        Renders pairs of half-width article cards (title + thumbnail only,
+        no description) below the chart section.
+        """
+        if not articles:
+            return ''
+
+        half_template = self._load_template('article_card_half')
+        rows_html = []
+
+        for i in range(0, len(articles), 2):
+            if i + 1 < len(articles):
+                # Pair of two side-by-side
+                rows_html.append(
+                    self._build_side_by_side_articles(articles[i], articles[i + 1])
+                )
+            else:
+                # Odd leftover — single half-width card centred
+                single_html = half_template.format(
+                    article_url=articles[i].get('url', ''),
+                    thumbnail_url=articles[i].get('thumbnail_url', ''),
+                    article_title=articles[i].get('title', ''),
+                    mso_padding='0',
+                    padding='0'
+                )
+                rows_html.append(f'''<tr>
+  <td align="center" style="padding:0 24px 24px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:256px;">
+      <tr>{single_html}</tr>
+    </table>
+  </td>
+</tr>''')
+
+        # Wrap in the same outer container as hero articles
+        wrapper = '''<!-- EXTRA ARTICLES -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse; background-color:#ffffff;">
+  <tr>
+    <td align="center" style="padding:0;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+             style="max-width:600px; border-collapse:collapse; font-family:Arial,sans-serif; color:#000000;">
+
+        <!-- Section heading -->
+        <tr>
+          <td style="padding:16px 24px 12px; font-size:16px; font-weight:700; font-family:Arial,sans-serif; color:#000000;">
+            More from Modo Energy
+          </td>
+        </tr>
+
+        {rows}
+
+      </table>
+    </td>
+  </tr>
+</table>'''
+
+        return wrapper.format(rows='\n\n'.join(rows_html))
 
     def _build_chart_section(self, chart: Dict) -> str:
         """Build the chart of the week section."""

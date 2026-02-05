@@ -1,31 +1,33 @@
 """
 Modo Energy Terminal Article Scraper
 
-Scrapes research articles from the Modo Energy Terminal.
-Filters by region (GB/Europe or non-Europe) and date (last 7 days).
+Fetches research articles from the Modo Energy API.
+Filters by region and date (adjustable lookback period).
 """
 
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
 import re
-import json
 
 
 class ModoArticleScraper:
-    """Scraper for Modo Energy research articles."""
+    """Scraper for Modo Energy research articles via the JSON API."""
 
-    BASE_URL = "https://modoenergy.com/research"
+    # Article page base URL (for building article links)
+    ARTICLE_BASE_URL = "https://modoenergy.com/research/en"
 
-    # Region codes for Modo Terminal URL filtering
-    # Note: Modo uses specific ISO/market codes, not country codes
-    REGIONS = {
-    "gb_europe": "gb_de_fr_it_ib",
-    "us": "ercot_caiso_miso_pjm_nyiso_isone_spp",
-    "australia": "australia_nem_wem",
-    "non_europe": "ercot_caiso_miso_pjm_nyiso_isone_spp_nem_wem",  # Keep for backwards compatibility
-    "all": None
+    # JSON API endpoint
+    API_BASE_URL = "https://admin.modo.energy/v1/content-service/news/insights/"
+
+    # Maps region keys to comma-separated API region codes
+    API_REGIONS = {
+        "gb_europe": "gb,de,fr,it,ib",
+        "us": "ercot,caiso,miso,pjm,nyiso,isone,spp",
+        "australia": "australia,nem,wem",
+        "non_europe": "ercot,caiso,miso,pjm,nyiso,isone,spp,nem,wem",
+        "all": None,
     }
 
     # Weighted keywords for region detection
@@ -98,129 +100,110 @@ class ModoArticleScraper:
         limit: int = 20
     ) -> List[Dict]:
         """
-        Fetch articles from Modo Energy Terminal.
+        Fetch articles from the Modo Energy API.
 
         Args:
-            region: "gb_europe" or "non_europe"
-            days: Number of days to look back
+            region: "gb_europe", "us", "australia", "non_europe", or "all"
+            days: Number of days to look back (filters by publishedAt date)
             limit: Maximum number of articles to return
 
         Returns:
-            List of article dictionaries with title, description, url, date, slug
+            List of article dictionaries with title, description, url, date, slug, etc.
         """
-        region_code = self.REGIONS.get(region, self.REGIONS["gb_europe"])
+        region_code = self.API_REGIONS.get(region, self.API_REGIONS["gb_europe"])
+
+        params = {
+            "source": "R,S,MV",
+            "language": "en",
+            "limit": min(limit, 50),
+            "offset": 0,
+        }
         if region_code:
-            url = f"{self.BASE_URL}?regions={region_code}&language=en"
-        else:
-            # No region filter - fetch all articles
-            url = f"{self.BASE_URL}?language=en"
+            params["region"] = region_code
 
-        try:
-            response = self.session.get(url, timeout=30)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            print(f"Error fetching articles: {e}")
-            return []
-
-        return self._parse_articles(response.text, days, limit)
-
-    def _parse_articles(self, html: str, days: int, limit: int) -> List[Dict]:
-        """Parse articles from HTML response."""
-        soup = BeautifulSoup(html, 'lxml')
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         articles = []
         seen_slugs = set()
 
-        # Find all links to research articles
-        research_links = soup.find_all('a', href=re.compile(r'/research/en/'))
+        try:
+            # Paginate through results until we have enough or run out
+            while len(articles) < limit:
+                response = self.session.get(
+                    self.API_BASE_URL, params=params, timeout=30
+                )
+                response.raise_for_status()
+                data = response.json()
 
-        for link in research_links:
-            if len(articles) >= limit:
-                break
+                results = data.get("results", [])
+                if not results:
+                    break
 
-            href = link.get('href', '')
+                for item in results:
+                    if len(articles) >= limit:
+                        break
 
-            # Extract slug from URL
-            slug_match = re.search(r'/research/en/([^?&]+)', href)
-            if not slug_match:
-                continue
+                    slug = item.get("slug", "")
+                    if not slug or slug in seen_slugs:
+                        continue
+                    seen_slugs.add(slug)
 
-            slug = slug_match.group(1)
+                    # Filter by date (API uses snake_case: published_at)
+                    published_at = item.get("published_at", "") or ""
+                    if published_at:
+                        try:
+                            pub_date = datetime.strptime(
+                                published_at, "%Y-%m-%dT%H:%M:%S%z"
+                            )
+                            if pub_date < cutoff:
+                                # Articles are sorted newest-first; once we hit
+                                # one older than the cutoff, all remaining are older too
+                                return articles
+                        except ValueError:
+                            pass  # Include articles with unparseable dates
 
-            # Skip duplicates
-            if slug in seen_slugs:
-                continue
+                    title = item.get("title", slug.replace("-", " ").title())
+                    description = item.get("short_description", "")
+                    thumbnail = (
+                        item.get("share_image_url")
+                        or item.get("main_image_url")
+                        or ""
+                    )
 
-            # Get text content from the link
-            text = link.get_text(strip=True)
+                    article = {
+                        "title": title,
+                        "description": description,
+                        "url": f"{self.ARTICLE_BASE_URL}/{slug}",
+                        "slug": slug,
+                        "date": published_at,
+                        "thumbnail_url": thumbnail,
+                        "og_image": thumbnail,
+                        "detected_region": self._detect_article_region(
+                            title, description, slug
+                        ),
+                        "source_type": item.get("source", ""),
+                        "categories": [
+                            c.get("name", "") for c in item.get("categories", [])
+                        ],
+                        "reading_time": item.get("reading_time_minutes"),
+                    }
+                    articles.append(article)
 
-            # Only process links that have meaningful text (descriptions)
-            # Skip empty links or very short text
-            if not text or len(text) < 20:
-                continue
+                # Check if there's a next page
+                next_url = data.get("next")
+                if not next_url or len(articles) >= limit:
+                    break
 
-            # The text is likely a description, not a title
-            # We need to fetch the title from the article page or use the slug
-            description = text[:300]
+                # Update offset for next page
+                params["offset"] = params["offset"] + params["limit"]
 
-            # Generate title from slug (convert dashes to spaces, title case)
-            title_from_slug = slug.replace('-', ' ').title()
-
-            # Build article URL
-            article_url = f"https://modoenergy.com/research/en/{slug}"
-
-            seen_slugs.add(slug)
-
-            article = {
-                "title": title_from_slug,
-                "description": description,
-                "url": article_url,
-                "slug": slug,
-                "date": "",
-                "thumbnail_url": self._generate_thumbnail_url(slug),
-                "detected_region": self._detect_article_region(title_from_slug, description, slug)
-            }
-
-            articles.append(article)
-
-        # If we found articles, try to get better titles from the page
-        # by looking at the full HTML for title patterns
-        self._enhance_with_titles(soup, articles)
+        except requests.RequestException as e:
+            print(f"Error fetching articles from API: {e}")
 
         return articles
 
-    def _enhance_with_titles(self, soup: BeautifulSoup, articles: List[Dict]):
-        """Fetch actual titles and images from each article page."""
-        for article in articles:
-            try:
-                details = self.get_article_details(article['url'])
-                if details.get('og_title'):
-                    # Clean up the title - remove site suffix
-                    title = details['og_title']
-                    title = re.sub(r'\s*[-–|]\s*(Research\s*\|?\s*)?Modo Energy.*$', '', title, flags=re.I)
-                    article['title'] = title.strip()
-                if details.get('og_description') and len(details['og_description']) > len(article.get('description', '')):
-                    article['description'] = details['og_description']
-                if details.get('og_image'):
-                    # Use the actual og:image as thumbnail (more reliable than generated URL)
-                    article['thumbnail_url'] = details['og_image']
-                    article['og_image'] = details['og_image']
-
-                # Re-detect region with updated title/description
-                article['detected_region'] = self._detect_article_region(
-                    article.get('title', ''),
-                    article.get('description', ''),
-                    article.get('slug', '')
-                )
-            except Exception as e:
-                print(f"Could not fetch details for {article['slug']}: {e}")
-
-    def _generate_thumbnail_url(self, slug: str) -> str:
-        """
-        Generate expected thumbnail URL based on naming convention.
-        Format: hubspot.net/.../[article-slug].png
-        """
-        base = "https://25093280.fs1.hubspotusercontent-eu1.net/hubfs/25093280/"
-        return f"{base}{slug}.png"
+    # ------------------------------------------------------------------
+    # Region detection (unchanged)
+    # ------------------------------------------------------------------
 
     def _calculate_region_score(self, text: str, keywords: list) -> tuple:
         """
@@ -337,6 +320,10 @@ class ModoArticleScraper:
         )
         return region in ['us', 'australia']
 
+    # ------------------------------------------------------------------
+    # Article detail fetching (kept for chart image extraction)
+    # ------------------------------------------------------------------
+
     def get_article_details(self, url: str) -> Dict:
         """
         Fetch detailed information about a specific article.
@@ -376,12 +363,15 @@ class ModoArticleScraper:
             "chart_images": chart_images
         }
 
+    # ------------------------------------------------------------------
+    # Aggregate fetchers
+    # ------------------------------------------------------------------
 
     def get_all_articles(self, days: int = 7, limit: int = 20) -> List[Dict]:
         """
         Fetch ALL recent articles by combining both region feeds.
 
-        The Modo website requires a region filter, so we fetch from both
+        The Modo API requires a region filter, so we fetch from both
         gb_europe and non_europe feeds and combine the results.
 
         Args:
@@ -437,12 +427,23 @@ class ModoArticleScraper:
         return non_europe_articles[:limit]
 
 
+def _format_date(iso_date: str) -> str:
+    """Format an ISO date string for display."""
+    if not iso_date:
+        return "Unknown date"
+    try:
+        dt = datetime.strptime(iso_date, "%Y-%m-%dT%H:%M:%S%z")
+        return dt.strftime("%b %d, %Y")
+    except ValueError:
+        return iso_date
+
+
 def main():
-    """Test the scraper with weighted scoring."""
+    """Test the scraper with the JSON API."""
     scraper = ModoArticleScraper()
 
     print("=" * 60)
-    print("ALL AVAILABLE ARTICLES")
+    print("ALL AVAILABLE ARTICLES (last 7 days)")
     print("=" * 60)
     all_articles = scraper.get_all_articles(days=7, limit=20)
 
@@ -469,16 +470,18 @@ def main():
     # Show Europe articles
     print(f"EUROPE ({len(europe_articles)} articles):")
     for i, article in enumerate(europe_articles, 1):
+        date_str = _format_date(article.get('date', ''))
         print(f"  {i}. {article['title']}")
-        print(f"     {article['url']}")
+        print(f"     {date_str} | {article['url']}")
 
     # Show Non-Europe articles
     print(f"\nUS/AUSTRALIA ({len(non_europe_articles)} articles):")
     if non_europe_articles:
         for i, article in enumerate(non_europe_articles, 1):
             scores = scraper.get_region_scores(article)
+            date_str = _format_date(article.get('date', ''))
             print(f"  {i}. [{scores['detected_region'].upper()}] {article['title']}")
-            print(f"     {article['url']}")
+            print(f"     {date_str} | {article['url']}")
             if scores['us']['matches']:
                 print(f"     US keywords: {[m[0] for m in scores['us']['matches']]}")
             if scores['australia']['matches']:
@@ -490,7 +493,9 @@ def main():
     if global_articles:
         print(f"\nGLOBAL/OTHER ({len(global_articles)} articles):")
         for i, article in enumerate(global_articles, 1):
+            date_str = _format_date(article.get('date', ''))
             print(f"  {i}. {article['title']}")
+            print(f"     {date_str}")
 
 
 if __name__ == "__main__":
