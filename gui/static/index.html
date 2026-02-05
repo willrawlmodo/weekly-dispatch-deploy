@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Dispatch — Newsletter Builder</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="app">
+        <!-- ═══ SIDEBAR ═══ -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>Weekly Dispatch</h1>
+                <p class="region-badge" id="regionBadge">No region selected</p>
+            </div>
+
+            <nav class="step-nav" id="stepNav">
+                <button class="step-btn active" data-step="region">
+                    <span class="step-num">0</span>
+                    <span class="step-label">Region</span>
+                    <span class="step-status" id="status-region"></span>
+                </button>
+                <button class="step-btn" data-step="articles">
+                    <span class="step-num">1</span>
+                    <span class="step-label">Featured Articles</span>
+                    <span class="step-status" id="status-featured_articles"></span>
+                </button>
+                <button class="step-btn" data-step="subject">
+                    <span class="step-num">2</span>
+                    <span class="step-label">Subject Line</span>
+                    <span class="step-status" id="status-subject_line"></span>
+                </button>
+                <button class="step-btn" data-step="intro">
+                    <span class="step-num">3</span>
+                    <span class="step-label">Intro Text</span>
+                    <span class="step-status" id="status-intro_text"></span>
+                </button>
+                <button class="step-btn" data-step="news">
+                    <span class="step-num">4</span>
+                    <span class="step-label">This Week's News</span>
+                    <span class="step-status" id="status-news_section"></span>
+                </button>
+                <button class="step-btn" data-step="chart">
+                    <span class="step-num">5</span>
+                    <span class="step-label">Chart of the Week</span>
+                    <span class="step-status" id="status-chart"></span>
+                </button>
+                <button class="step-btn" data-step="more-articles">
+                    <span class="step-num">5b</span>
+                    <span class="step-label">More Articles</span>
+                    <span class="step-status" id="status-more_articles"></span>
+                </button>
+                <button class="step-btn" data-step="banner">
+                    <span class="step-num">6</span>
+                    <span class="step-label">Promo Banner</span>
+                    <span class="step-status" id="status-banner"></span>
+                </button>
+                <button class="step-btn" data-step="podcast">
+                    <span class="step-num">7</span>
+                    <span class="step-label">Podcast</span>
+                    <span class="step-status" id="status-podcast"></span>
+                </button>
+                <button class="step-btn" data-step="world">
+                    <span class="step-num">8</span>
+                    <span class="step-label">World Articles</span>
+                    <span class="step-status" id="status-world_articles"></span>
+                </button>
+                <button class="step-btn" data-step="assemble">
+                    <span class="step-num">9</span>
+                    <span class="step-label">Assemble & Publish</span>
+                    <span class="step-status" id="status-assemble"></span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="btn btn-sm" onclick="App.saveCheckpoint()">💾 Save Progress</button>
+                <button class="btn btn-sm btn-danger" onclick="App.reset()">🗑 Reset</button>
+            </div>
+        </aside>
+
+        <!-- ═══ MAIN CONTENT ═══ -->
+        <main class="main">
+            <div class="panels-container">
+                <!-- WORK PANEL (left side of main) -->
+                <div class="work-panel" id="workPanel">
+
+                    <!-- ── Step 0: Region ── -->
+                    <section class="panel" id="panel-region">
+                        <h2>Select Newsletter Region</h2>
+                        <p>Choose which edition you're creating. This determines the article sources, header banner, news filters, and HubSpot settings.</p>
+                        <div class="region-cards" id="regionCards">
+                            <button class="region-card" data-region="us" onclick="App.selectRegion('us')">
+                                <strong>🇺🇸 US</strong>
+                                <span>ERCOT · MISO · CAISO · PJM · NYISO · ISO-NE · SPP</span>
+                            </button>
+                            <button class="region-card" data-region="europe" onclick="App.selectRegion('europe')">
+                                <strong>🇪🇺 Europe & GB</strong>
+                                <span>GB · Germany · Spain · Italy · France · Nordics</span>
+                            </button>
+                            <button class="region-card" data-region="australia" onclick="App.selectRegion('australia')">
+                                <strong>🇦🇺 Australia</strong>
+                                <span>NEM · WEM</span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- ── Step 1: Featured Articles ── -->
+                    <section class="panel hidden" id="panel-articles">
+                        <h2>Featured Articles</h2>
+                        <div class="panel-toolbar">
+                            <label>Max articles:
+                                <select id="articleLayout">
+                                    <option value="1">1 article</option>
+                                    <option value="2" selected>2 articles</option>
+                                    <option value="3">3 articles</option>
+                                    <option value="4">4 articles</option>
+                                    <option value="5">5 articles</option>
+                                    <option value="6">6 articles</option>
+                                    <option value="7">7 articles</option>
+                                    <option value="8">8 articles</option>
+                                    <option value="9">9 articles</option>
+                                    <option value="10">10 articles</option>
+                                </select>
+                            </label>
+                            <label>Days lookback:
+                                <input type="number" id="articleDays" value="7" min="1" max="90" style="width: 60px;" />
+                            </label>
+                            <button class="btn" onclick="App.fetchArticles()">🔄 Fetch Articles</button>
+                        </div>
+                        <div class="loading hidden" id="articlesLoading">Fetching from Modo Terminal...</div>
+                        <div class="card-list card-list-scroll" id="articleList"></div>
+                        <div class="confirm-bar hidden" id="confirmArticles">
+                            <span class="confirm-hint" id="articleSelectionHint">Select articles above</span>
+                            <button class="btn btn-primary" onclick="App.confirmArticles()">
+                                ✓ Confirm Selection &amp; Next →
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- ── Step 2: Subject Line ── -->
+                    <section class="panel hidden" id="panel-subject">
+                        <h2>Subject Line</h2>
+                        <button class="btn" onclick="App.generateSubjects()">✨ Generate Suggestions</button>
+                        <div class="loading hidden" id="subjectLoading">Generating with AI...</div>
+                        <div class="option-list" id="subjectList"></div>
+                        <div class="input-group">
+                            <label>Custom / Edit:</label>
+                            <input type="text" id="subjectInput" placeholder="Enter or edit subject line" />
+                            <button class="btn btn-primary" onclick="App.confirmSubject()">✓ Confirm</button>
+                        </div>
+                    </section>
+
+                    <!-- ── Step 3: Intro Text ── -->
+                    <section class="panel hidden" id="panel-intro">
+                        <h2>Intro Paragraph</h2>
+                        <button class="btn" onclick="App.generateIntro()">✨ Generate Intro</button>
+                        <div class="loading hidden" id="introLoading">Generating with AI...</div>
+                        <div class="intro-preview" id="introPreview"></div>
+                        <div class="input-group">
+                            <label>Edit (HTML supported):</label>
+                            <textarea id="introInput" rows="4" placeholder="Good morning and welcome back to the Weekly Dispatch..."></textarea>
+                            <button class="btn btn-primary" onclick="App.confirmIntro()">✓ Confirm</button>
+                        </div>
+                    </section>
+
+                    <!-- ── Step 4: News ── -->
+                    <section class="panel hidden" id="panel-news">
+                        <h2>This Week's News</h2>
+                        <div class="panel-toolbar">
+                            <button class="btn" onclick="App.fetchNews()">🔄 Fetch News</button>
+                        </div>
+                        <div class="loading hidden" id="newsLoading">Fetching RSS feeds...</div>
+                        <div class="card-list card-list-scroll" id="newsList"></div>
+                        <div class="input-group">
+                            <label>Add custom URL:</label>
+                            <input type="text" id="customNewsUrl" placeholder="https://..." />
+                            <button class="btn btn-sm" onclick="App.addCustomNewsUrl()">+ Add</button>
+                        </div>
+                        <div id="customNewsList"></div>
+                        <div class="confirm-bar hidden" id="confirmNews">
+                            <span class="confirm-hint" id="newsSelectionHint">Select up to 4 news items</span>
+                            <button class="btn btn-primary" onclick="App.confirmNews()">
+                                ✓ Confirm News &amp; Next →
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- ── Step 5: Chart ── -->
+                    <section class="panel hidden" id="panel-chart">
+                        <h2>Chart of the Week</h2>
+                        <div class="input-group">
+                            <label>Source article:</label>
+                            <select id="chartSourceArticle"></select>
+                        </div>
+                        <div class="input-group">
+                            <label>Chart image (URL or local path):</label>
+                            <input type="text" id="chartImage" placeholder="https://... or /Users/.../chart.png" />
+                        </div>
+                        <button class="btn" onclick="App.generateChartText()">✨ Generate Text</button>
+                        <div class="loading hidden" id="chartLoading">Generating...</div>
+                        <div class="input-group">
+                            <label>Intro text:</label>
+                            <textarea id="chartIntro" rows="3"></textarea>
+                        </div>
+                        <div class="input-group">
+                            <label>Outro text:</label>
+                            <textarea id="chartOutro" rows="3"></textarea>
+                        </div>
+                        <div class="btn-row">
+                            <button class="btn btn-primary" onclick="App.confirmChart()">✓ Confirm</button>
+                            <button class="btn" onclick="App.skipChart()">Skip</button>
+                        </div>
+                    </section>
+
+                    <!-- ── Step 5b: More Articles ── -->
+                    <section class="panel hidden" id="panel-more-articles">
+                        <h2>More Articles</h2>
+                        <p>Optional — add up to 10 more articles below the chart (compact inline list).</p>
+                        <div class="panel-toolbar">
+                            <label>Days lookback:
+                                <input type="number" id="moreArticlesDays" value="14" min="1" max="90" style="width: 60px;" />
+                            </label>
+                            <button class="btn" onclick="App.fetchMoreArticles()">🔄 Fetch Articles</button>
+                            <button class="btn" onclick="App.skipMoreArticles()">Skip</button>
+                        </div>
+                        <div class="loading hidden" id="moreArticlesLoading">Fetching articles...</div>
+                        <div class="card-list card-list-scroll" id="moreArticlesList"></div>
+                        <div class="confirm-bar hidden" id="confirmMoreArticles">
+                            <span class="confirm-hint" id="moreArticlesSelectionHint">Select articles above</span>
+                            <button class="btn btn-primary" onclick="App.confirmMoreArticles()">
+                                ✓ Confirm Selection &amp; Next →
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- ── Step 6: Banner ── -->
+                    <section class="panel hidden" id="panel-banner">
+                        <h2>Promotional Banner</h2>
+                        <p>Optional — add a promotional banner (event, announcement, etc.)</p>
+                        <div class="input-group">
+                            <label>Banner image URL or local path:</label>
+                            <input type="text" id="bannerImage" placeholder="https://..." />
+                        </div>
+                        <div class="input-group">
+                            <label>Link URL:</label>
+                            <input type="text" id="bannerLink" placeholder="https://..." />
+                        </div>
+                        <div class="input-group">
+                            <label>Alt text:</label>
+                            <input type="text" id="bannerAlt" placeholder="E-World 2026" />
+                        </div>
+                        <div class="btn-row">
+                            <button class="btn btn-primary" onclick="App.confirmBanner()">✓ Confirm</button>
+                            <button class="btn" onclick="App.skipBanner()">Skip</button>
+                        </div>
+                    </section>
+
+                    <!-- ── Step 7: Podcast ── -->
+                    <section class="panel hidden" id="panel-podcast">
+                        <h2>Podcast Section</h2>
+                        <button class="btn" onclick="App.fetchPodcasts()">🔄 Fetch Episodes</button>
+                        <div class="loading hidden" id="podcastLoading">Fetching from YouTube...</div>
+                        <div class="card-list" id="podcastList"></div>
+                        <div class="podcast-details hidden" id="podcastDetails">
+                            <h3>Guest Details</h3>
+                            <div class="input-group">
+                                <label>Moderator:</label>
+                                <input type="text" id="podcastModerator" value="Ed" />
+                            </div>
+                            <div class="input-group">
+                                <label>Guest name:</label>
+                                <input type="text" id="podcastGuest" />
+                            </div>
+                            <div class="input-group">
+                                <label>Guest role:</label>
+                                <input type="text" id="podcastRole" />
+                            </div>
+                            <div class="input-group">
+                                <label>Company:</label>
+                                <input type="text" id="podcastCompany" />
+                            </div>
+                            <div class="input-group">
+                                <label>Guest LinkedIn URL:</label>
+                                <input type="text" id="podcastGuestLinkedin" placeholder="https://linkedin.com/in/..." />
+                            </div>
+                            <div class="input-group">
+                                <label>Company LinkedIn URL:</label>
+                                <input type="text" id="podcastCompanyLinkedin" placeholder="https://linkedin.com/company/..." />
+                            </div>
+                            <button class="btn btn-primary" onclick="App.confirmPodcast()">✓ Confirm</button>
+                        </div>
+                    </section>
+
+                    <!-- ── Step 8: World Articles ── -->
+                    <section class="panel hidden" id="panel-world">
+                        <h2>More from Around the World</h2>
+                        <div class="panel-toolbar">
+                            <label>Days lookback:
+                                <input type="number" id="worldDays" value="14" min="1" max="90" style="width: 60px;" />
+                            </label>
+                            <button class="btn" onclick="App.fetchWorldArticles()">🔄 Fetch Articles</button>
+                        </div>
+                        <div class="loading hidden" id="worldLoading">Fetching other-region articles...</div>
+                        <div class="card-list card-list-scroll" id="worldList"></div>
+                        <div class="confirm-bar hidden" id="confirmWorld">
+                            <span class="confirm-hint" id="worldSelectionHint">Select up to 3 world articles</span>
+                            <button class="btn btn-primary" onclick="App.confirmWorld()">
+                                ✓ Confirm Selection &amp; Next →
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- ── Step 9: Assemble ── -->
+                    <section class="panel hidden" id="panel-assemble">
+                        <h2>Assemble & Publish</h2>
+                        <div class="assemble-actions">
+                            <button class="btn btn-primary btn-lg" onclick="App.assembleNewsletter()">
+                                📄 Assemble Newsletter
+                            </button>
+                            <button class="btn btn-lg" onclick="App.publishHubspot()">
+                                📤 Publish to HubSpot
+                            </button>
+                        </div>
+                        <div class="loading hidden" id="assembleLoading">Assembling...</div>
+                        <div id="assembleResult" class="result-box hidden"></div>
+                    </section>
+
+                </div>
+
+                <!-- RESIZE HANDLE -->
+                <div class="resize-handle" id="resizeHandle"></div>
+
+                <!-- PREVIEW PANEL (right side of main) -->
+                <div class="preview-panel" id="previewPanel">
+                    <div class="preview-header">
+                        <h3>📧 Live Preview</h3>
+                        <button class="btn btn-sm" onclick="App.refreshPreview()">🔄 Refresh</button>
+                    </div>
+                    <iframe id="previewFrame" class="preview-frame" srcdoc="<p style='color:#999; padding:40px; font-family:sans-serif;'>Complete steps to see preview...</p>"></iframe>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="/static/app.js"></script>
+</body>
+</html>

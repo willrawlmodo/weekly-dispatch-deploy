@@ -42,6 +42,7 @@ env/
 output/
 *.html
 !templates/*.html
+!gui/static/*.html
 
 # API keys and secrets
 secrets/
