@@ -180,7 +180,7 @@ body {
 .step-num {
     width: 24px;
     height: 24px;
-    border-radius: 6px;
+    border-radius: 50%;
     background: rgba(255,255,255,0.08);
     display: flex;
     align-items: center;
@@ -196,22 +196,79 @@ body {
     color: #fff;
 }
 
+/* Completed step — green circle with checkmark */
+.step-btn.completed .step-num {
+    background: var(--success);
+    color: #fff;
+    font-size: 0;
+}
+
+.step-btn.completed .step-num::after {
+    content: '\2713';
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.step-btn.completed {
+    color: rgba(211, 216, 233, 0.6);
+}
+
+.step-btn.completed:hover {
+    color: #fff;
+}
+
+/* Active step overrides completed styling */
+.step-btn.active.completed .step-num {
+    background: var(--purple);
+    font-size: 11px;
+}
+
+.step-btn.active.completed .step-num::after {
+    content: none;
+}
+
 .step-label {
     font-weight: 500;
 }
 
 .step-status { margin-left: auto; font-size: 14px; }
-.step-status.done::after {
-    content: "✓";
-    color: var(--success);
-    font-weight: 700;
-}
+/* Green circle on step-num replaces this; keep element for JS compatibility */
 
 .sidebar-footer {
     padding: 16px 20px;
     border-top: 1px solid rgba(255,255,255,0.06);
     display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sidebar-footer-actions {
+    display: flex;
     gap: 8px;
+}
+
+.sidebar-footer-label {
+    font-size: 10px;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+/* Sidebar button variant — looks good on dark bg */
+.btn-sidebar {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.12);
+    color: var(--sidebar-text);
+    box-shadow: none;
+}
+.btn-sidebar:hover {
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(255,255,255,0.2);
+    color: #fff;
+    box-shadow: none;
+    transform: none;
 }
 
 /* ══════════════════════════════════════════
@@ -231,7 +288,7 @@ body {
 .work-panel {
     flex: 1;
     overflow-y: auto;
-    padding: 32px;
+    padding: 40px 48px;
     min-width: 0;
 }
 
@@ -294,6 +351,27 @@ body {
     font-weight: 600;
     color: var(--text-secondary);
     letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Preview status dot */
+.preview-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border-hover);
+    flex-shrink: 0;
+    transition: background var(--transition-base);
+}
+
+.preview-status-dot.fresh {
+    background: var(--success);
+}
+
+.preview-status-dot.stale {
+    background: var(--warning);
 }
 
 .preview-frame {
@@ -307,14 +385,26 @@ body {
    ══════════════════════════════════════════ */
 
 .panel {
-    max-width: 700px;
+    max-width: 640px;
+}
+
+.step-indicator {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 4px;
 }
 
 .panel h2 {
     font-family: var(--font-heading);
     font-size: 22px;
     font-weight: 600;
-    margin-bottom: 6px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
     color: var(--text);
     letter-spacing: -0.01em;
 }
@@ -406,6 +496,34 @@ body {
     color: #fff;
 }
 
+.btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-muted);
+    box-shadow: none;
+    font-weight: 500;
+}
+.btn-ghost:hover {
+    color: var(--purple);
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    transform: none;
+    text-decoration: underline;
+}
+.btn-ghost:active {
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-ghost-danger {
+    color: rgba(232, 67, 101, 0.6);
+}
+.btn-ghost-danger:hover {
+    color: var(--danger);
+    text-decoration: underline;
+}
+
 .btn-sm {
     padding: 5px 12px;
     font-size: 12px;
@@ -442,7 +560,7 @@ body {
 
 .region-cards {
     display: flex;
-    gap: 12px;
+    gap: 16px;
     flex-wrap: wrap;
 }
 
@@ -502,19 +620,34 @@ body {
     padding-right: 4px;
 }
 
+/* Empty state placeholder */
+.card-list:empty::after,
+.option-list:empty::after {
+    content: 'Click a button above to load items';
+    display: block;
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg);
+}
+
 /* ── Confirm bar ── */
 .confirm-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 16px 20px;
+    padding: 16px 24px;
     margin-top: 12px;
     position: sticky;
     bottom: 0;
     background: var(--panel-bg);
     border-radius: var(--radius-lg);
     box-shadow: 0 -4px 12px rgba(18,18,43,0.06);
+    border-left: 2px solid var(--purple);
     z-index: 5;
 }
 
@@ -757,18 +890,34 @@ body {
     flex-wrap: wrap;
 }
 
-.panel-toolbar select {
+.panel-toolbar select,
+.panel-toolbar input[type="number"] {
     padding: 6px 10px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     font-size: 13px;
     font-family: var(--font-body);
+    background: #fff;
+    color: var(--text);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.panel-toolbar select:focus,
+.panel-toolbar input[type="number"]:focus {
+    outline: none;
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px var(--purple-glow);
 }
 
 .panel-toolbar label {
     font-size: 13px;
     color: var(--text-secondary);
     font-weight: 500;
+}
+
+/* Textarea minimum height */
+.input-group textarea {
+    min-height: 80px;
 }
 
 /* ══════════════════════════════════════════
@@ -836,9 +985,10 @@ body {
 
 .assemble-actions {
     display: flex;
-    gap: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
     margin-bottom: 20px;
-    flex-wrap: wrap;
 }
 
 /* ══════════════════════════════════════════

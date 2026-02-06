@@ -75,8 +75,11 @@
             </nav>
 
             <div class="sidebar-footer">
-                <button class="btn btn-sm" onclick="App.saveCheckpoint()">💾 Save Progress</button>
-                <button class="btn btn-sm btn-danger" onclick="App.reset()">🗑 Reset</button>
+                <div class="sidebar-footer-actions">
+                    <button class="btn btn-sm btn-sidebar" onclick="App.saveCheckpoint()">Save Progress</button>
+                    <button class="btn btn-sm btn-ghost btn-ghost-danger" onclick="App.reset()">Reset</button>
+                </div>
+                <span class="sidebar-footer-label">Internal Tool</span>
             </div>
         </aside>
 
@@ -88,19 +91,20 @@
 
                     <!-- ── Step 0: Region ── -->
                     <section class="panel" id="panel-region">
+                        <span class="step-indicator">Step 0 of 9</span>
                         <h2>Select Newsletter Region</h2>
                         <p>Choose which edition you're creating. This determines the article sources, header banner, news filters, and HubSpot settings.</p>
                         <div class="region-cards" id="regionCards">
                             <button class="region-card" data-region="us" onclick="App.selectRegion('us')">
-                                <strong>🇺🇸 US</strong>
+                                <strong>US</strong>
                                 <span>ERCOT · MISO · CAISO · PJM · NYISO · ISO-NE · SPP</span>
                             </button>
                             <button class="region-card" data-region="europe" onclick="App.selectRegion('europe')">
-                                <strong>🇪🇺 Europe & GB</strong>
+                                <strong>Europe & GB</strong>
                                 <span>GB · Germany · Spain · Italy · France · Nordics</span>
                             </button>
                             <button class="region-card" data-region="australia" onclick="App.selectRegion('australia')">
-                                <strong>🇦🇺 Australia</strong>
+                                <strong>Australia</strong>
                                 <span>NEM · WEM</span>
                             </button>
                         </div>
@@ -108,6 +112,7 @@
 
                     <!-- ── Step 1: Featured Articles ── -->
                     <section class="panel hidden" id="panel-articles">
+                        <span class="step-indicator">Step 1 of 9</span>
                         <h2>Featured Articles</h2>
                         <div class="panel-toolbar">
                             <label>Max articles:
@@ -127,49 +132,52 @@
                             <label>Days lookback:
                                 <input type="number" id="articleDays" value="7" min="1" max="90" class="input-narrow" />
                             </label>
-                            <button class="btn" onclick="App.fetchArticles()">🔄 Fetch Articles</button>
+                            <button class="btn btn-secondary" onclick="App.fetchArticles()">Fetch Articles</button>
                         </div>
                         <div class="loading hidden" id="articlesLoading">Fetching from Modo Terminal...</div>
                         <div class="card-list card-list-scroll" id="articleList"></div>
                         <div class="confirm-bar hidden" id="confirmArticles">
                             <span class="confirm-hint" id="articleSelectionHint">Select articles above</span>
                             <button class="btn btn-primary" onclick="App.confirmArticles()">
-                                ✓ Confirm Selection &amp; Next →
+                                Confirm Selection
                             </button>
                         </div>
                     </section>
 
                     <!-- ── Step 2: Subject Line ── -->
                     <section class="panel hidden" id="panel-subject">
+                        <span class="step-indicator">Step 2 of 9</span>
                         <h2>Subject Line</h2>
-                        <button class="btn" onclick="App.generateSubjects()">✨ Generate Suggestions</button>
+                        <button class="btn btn-secondary" onclick="App.generateSubjects()">Generate Suggestions</button>
                         <div class="loading hidden" id="subjectLoading">Generating with AI...</div>
                         <div class="option-list" id="subjectList"></div>
                         <div class="input-group">
                             <label>Custom / Edit:</label>
                             <input type="text" id="subjectInput" placeholder="Enter or edit subject line" />
-                            <button class="btn btn-primary" onclick="App.confirmSubject()">✓ Confirm</button>
+                            <button class="btn btn-primary" onclick="App.confirmSubject()">Confirm</button>
                         </div>
                     </section>
 
                     <!-- ── Step 3: Intro Text ── -->
                     <section class="panel hidden" id="panel-intro">
+                        <span class="step-indicator">Step 3 of 9</span>
                         <h2>Intro Paragraph</h2>
-                        <button class="btn" onclick="App.generateIntro()">✨ Generate Intro</button>
+                        <button class="btn btn-secondary" onclick="App.generateIntro()">Generate Intro</button>
                         <div class="loading hidden" id="introLoading">Generating with AI...</div>
                         <div class="intro-preview" id="introPreview"></div>
                         <div class="input-group">
                             <label>Edit (HTML supported):</label>
                             <textarea id="introInput" rows="4" placeholder="Good morning and welcome back to the Weekly Dispatch..."></textarea>
-                            <button class="btn btn-primary" onclick="App.confirmIntro()">✓ Confirm</button>
+                            <button class="btn btn-primary" onclick="App.confirmIntro()">Confirm</button>
                         </div>
                     </section>
 
                     <!-- ── Step 4: News ── -->
                     <section class="panel hidden" id="panel-news">
+                        <span class="step-indicator">Step 4 of 9</span>
                         <h2>This Week's News</h2>
                         <div class="panel-toolbar">
-                            <button class="btn" onclick="App.fetchNews()">🔄 Fetch News</button>
+                            <button class="btn btn-secondary" onclick="App.fetchNews()">Fetch News</button>
                         </div>
                         <div class="loading hidden" id="newsLoading">Fetching RSS feeds...</div>
                         <div class="card-list card-list-scroll" id="newsList"></div>
@@ -182,13 +190,14 @@
                         <div class="confirm-bar hidden" id="confirmNews">
                             <span class="confirm-hint" id="newsSelectionHint">Select up to 4 news items</span>
                             <button class="btn btn-primary" onclick="App.confirmNews()">
-                                ✓ Confirm News &amp; Next →
+                                Confirm News
                             </button>
                         </div>
                     </section>
 
                     <!-- ── Step 5: Chart ── -->
                     <section class="panel hidden" id="panel-chart">
+                        <span class="step-indicator">Step 5 of 9</span>
                         <h2>Chart of the Week</h2>
                         <div class="input-group">
                             <label>Source article:</label>
@@ -206,7 +215,7 @@
                                 <img id="chartImageThumb" />
                             </div>
                         </div>
-                        <button class="btn" onclick="App.generateChartText()">✨ Generate Text</button>
+                        <button class="btn btn-secondary" onclick="App.generateChartText()">Generate Text</button>
                         <div class="loading hidden" id="chartLoading">Generating...</div>
                         <div class="input-group">
                             <label>Intro text:</label>
@@ -217,34 +226,36 @@
                             <textarea id="chartOutro" rows="3"></textarea>
                         </div>
                         <div class="btn-row">
-                            <button class="btn btn-primary" onclick="App.confirmChart()">✓ Confirm</button>
-                            <button class="btn" onclick="App.skipChart()">Skip</button>
+                            <button class="btn btn-primary" onclick="App.confirmChart()">Confirm</button>
+                            <button class="btn btn-ghost" onclick="App.skipChart()">Skip</button>
                         </div>
                     </section>
 
                     <!-- ── Step 5b: More Articles ── -->
                     <section class="panel hidden" id="panel-more-articles">
+                        <span class="step-indicator">Step 5b</span>
                         <h2>More Articles</h2>
                         <p>Optional — add up to 10 more articles below the chart (compact inline list).</p>
                         <div class="panel-toolbar">
                             <label>Days lookback:
                                 <input type="number" id="moreArticlesDays" value="14" min="1" max="90" class="input-narrow" />
                             </label>
-                            <button class="btn" onclick="App.fetchMoreArticles()">🔄 Fetch Articles</button>
-                            <button class="btn" onclick="App.skipMoreArticles()">Skip</button>
+                            <button class="btn btn-secondary" onclick="App.fetchMoreArticles()">Fetch Articles</button>
+                            <button class="btn btn-ghost" onclick="App.skipMoreArticles()">Skip</button>
                         </div>
                         <div class="loading hidden" id="moreArticlesLoading">Fetching articles...</div>
                         <div class="card-list card-list-scroll" id="moreArticlesList"></div>
                         <div class="confirm-bar hidden" id="confirmMoreArticles">
                             <span class="confirm-hint" id="moreArticlesSelectionHint">Select articles above</span>
                             <button class="btn btn-primary" onclick="App.confirmMoreArticles()">
-                                ✓ Confirm Selection &amp; Next →
+                                Confirm Selection
                             </button>
                         </div>
                     </section>
 
                     <!-- ── Step 6: Banner ── -->
                     <section class="panel hidden" id="panel-banner">
+                        <span class="step-indicator">Step 6 of 9</span>
                         <h2>Promotional Banner</h2>
                         <p>Optional — add a promotional banner (event, announcement, etc.)</p>
                         <div class="input-group">
@@ -260,15 +271,16 @@
                             <input type="text" id="bannerAlt" placeholder="E-World 2026" />
                         </div>
                         <div class="btn-row">
-                            <button class="btn btn-primary" onclick="App.confirmBanner()">✓ Confirm</button>
-                            <button class="btn" onclick="App.skipBanner()">Skip</button>
+                            <button class="btn btn-primary" onclick="App.confirmBanner()">Confirm</button>
+                            <button class="btn btn-ghost" onclick="App.skipBanner()">Skip</button>
                         </div>
                     </section>
 
                     <!-- ── Step 7: Podcast ── -->
                     <section class="panel hidden" id="panel-podcast">
+                        <span class="step-indicator">Step 7 of 9</span>
                         <h2>Podcast Section</h2>
-                        <button class="btn" onclick="App.fetchPodcasts()">🔄 Fetch Episodes</button>
+                        <button class="btn btn-secondary" onclick="App.fetchPodcasts()">Fetch Episodes</button>
                         <div class="loading hidden" id="podcastLoading">Fetching from YouTube...</div>
                         <div class="card-list" id="podcastList"></div>
                         <div class="podcast-details hidden" id="podcastDetails">
@@ -297,41 +309,43 @@
                                 <label>Company LinkedIn URL:</label>
                                 <input type="text" id="podcastCompanyLinkedin" placeholder="https://linkedin.com/company/..." />
                             </div>
-                            <button class="btn btn-primary" onclick="App.confirmPodcast()">✓ Confirm</button>
+                            <button class="btn btn-primary" onclick="App.confirmPodcast()">Confirm</button>
                         </div>
                     </section>
 
                     <!-- ── Step 8: World Articles ── -->
                     <section class="panel hidden" id="panel-world">
+                        <span class="step-indicator">Step 8 of 9</span>
                         <h2>More from Around the World</h2>
                         <div class="panel-toolbar">
                             <label>Days lookback:
                                 <input type="number" id="worldDays" value="14" min="1" max="90" class="input-narrow" />
                             </label>
-                            <button class="btn" onclick="App.fetchWorldArticles()">🔄 Fetch Articles</button>
+                            <button class="btn btn-secondary" onclick="App.fetchWorldArticles()">Fetch Articles</button>
                         </div>
                         <div class="loading hidden" id="worldLoading">Fetching other-region articles...</div>
                         <div class="card-list card-list-scroll" id="worldList"></div>
                         <div class="confirm-bar hidden" id="confirmWorld">
                             <span class="confirm-hint" id="worldSelectionHint">Select up to 3 world articles</span>
                             <button class="btn btn-primary" onclick="App.confirmWorld()">
-                                ✓ Confirm Selection &amp; Next →
+                                Confirm Selection
                             </button>
                         </div>
                     </section>
 
                     <!-- ── Step 9: Assemble ── -->
                     <section class="panel hidden" id="panel-assemble">
+                        <span class="step-indicator">Step 9 of 9</span>
                         <h2>Assemble & Publish</h2>
                         <div class="assemble-actions">
                             <button class="btn btn-primary btn-lg" onclick="App.assembleNewsletter()">
-                                📄 Assemble Newsletter
+                                Assemble Newsletter
                             </button>
                             <button class="btn btn-lg btn-download" onclick="App.downloadNewsletter()">
-                                ⬇ Download HTML
+                                Download HTML
                             </button>
                             <button class="btn btn-lg" onclick="App.publishHubspot()">
-                                📤 Publish to HubSpot
+                                Publish to HubSpot
                             </button>
                         </div>
                         <p class="step-hint">
@@ -349,8 +363,8 @@
                 <!-- PREVIEW PANEL (right side of main) -->
                 <div class="preview-panel" id="previewPanel">
                     <div class="preview-header">
-                        <h3>📧 Live Preview</h3>
-                        <button class="btn btn-sm" onclick="App.refreshPreview()">🔄 Refresh</button>
+                        <h3><span class="preview-status-dot" id="previewDot"></span>Live Preview</h3>
+                        <button class="btn btn-sm" onclick="App.refreshPreview()">Refresh</button>
                     </div>
                     <iframe id="previewFrame" class="preview-frame" srcdoc="<p style='color:#999; padding:40px; font-family:sans-serif;'>Complete steps to see preview...</p>"></iframe>
                 </div>

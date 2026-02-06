@@ -63,11 +63,16 @@ const App = {
         // Update step status indicators
         (progress.completed || []).forEach(step => {
             const el = document.getElementById(`status-${step}`);
-            if (el) el.classList.add('done');
+            if (el) {
+                el.classList.add('done');
+                // Also mark the parent step-btn as completed
+                const btn = el.closest('.step-btn');
+                if (btn) btn.classList.add('completed');
+            }
         });
         // Update region badge
         if (progress.region_name) {
-            document.getElementById('regionBadge').textContent = progress.region_name + ' Edition';
+            document.getElementById('regionBadge').textContent = progress.region_name;
         }
     },
 
@@ -76,6 +81,8 @@ const App = {
     _previewTimer: null,
 
     refreshPreview() {
+        // Mark as stale while refresh is pending
+        this._markPreviewStale();
         // Debounce preview refreshes to avoid blocking UI
         clearTimeout(this._previewTimer);
         this._previewTimer = setTimeout(() => this._doRefreshPreview(), 500);
@@ -86,9 +93,23 @@ const App = {
             const data = await this.api('GET', '/api/preview');
             const frame = document.getElementById('previewFrame');
             frame.srcdoc = data.html || '<p style="color:#999; padding:40px;">No content yet</p>';
+            this._setPreviewDot('fresh');
         } catch (e) {
             // Preview may fail if not enough content yet — that's OK
         }
+    },
+
+    /** Set preview status dot: 'fresh' (green), 'stale' (orange), or '' (gray). */
+    _setPreviewDot(state) {
+        const dot = document.getElementById('previewDot');
+        if (!dot) return;
+        dot.classList.remove('fresh', 'stale');
+        if (state) dot.classList.add(state);
+    },
+
+    /** Mark preview as stale (content changed but preview not yet refreshed). */
+    _markPreviewStale() {
+        this._setPreviewDot('stale');
     },
 
     // ── Helpers ────────────────────────────────────────────
@@ -101,6 +122,16 @@ const App = {
     setVisible(id, visible) {
         const el = document.getElementById(id);
         if (el) el.classList.toggle('hidden', !visible);
+    },
+
+    /** Mark a step status as done and add completed class to parent nav button. */
+    markStepDone(statusId) {
+        const el = document.getElementById(statusId);
+        if (el) {
+            el.classList.add('done');
+            const btn = el.closest('.step-btn');
+            if (btn) btn.classList.add('completed');
+        }
     },
 
     // ── Toast notifications ──────────────────────────────
@@ -131,9 +162,9 @@ const App = {
         await this.api('POST', '/api/step/region', { region });
 
         document.getElementById('regionBadge').textContent =
-            { us: 'US', europe: 'Europe & GB', australia: 'Australia' }[region] + ' Edition';
+            { us: 'US', europe: 'Europe & GB', australia: 'Australia' }[region];
 
-        document.getElementById('status-region').classList.add('done');
+        this.markStepDone('status-region');
         this.refreshPreview();
         this.nextStep();
     },
@@ -210,7 +241,7 @@ const App = {
         if (indices.length === 0) { this.showToast('Select at least one article.', 'error'); return; }
 
         await this.api('POST', '/api/step/articles/select', { indices, num_layout: numLayout });
-        document.getElementById('status-featured_articles').classList.add('done');
+        this.markStepDone('status-featured_articles');
         this.showToast(`${indices.length} article${indices.length > 1 ? 's' : ''} confirmed`);
         this.refreshPreview();
         this.nextStep();
@@ -255,7 +286,7 @@ const App = {
         if (!subject) { this.showToast('Enter or select a subject line.', 'error'); return; }
 
         await this.api('POST', '/api/step/subject/select', { subject });
-        document.getElementById('status-subject_line').classList.add('done');
+        this.markStepDone('status-subject_line');
         this.showToast('Subject line confirmed');
         this.refreshPreview();
         this.nextStep();
@@ -284,7 +315,7 @@ const App = {
         if (!text) { this.showToast('Generate or enter intro text.', 'error'); return; }
 
         await this.api('POST', '/api/step/intro/select', { intro_text: text });
-        document.getElementById('status-intro_text').classList.add('done');
+        this.markStepDone('status-intro_text');
         this.showToast('Intro text confirmed');
         this.refreshPreview();
         this.nextStep();
@@ -378,7 +409,7 @@ const App = {
             indices,
             custom_urls: this.customNewsUrls,
         });
-        document.getElementById('status-news_section').classList.add('done');
+        this.markStepDone('status-news_section');
         this.showToast('News section confirmed');
         this.refreshPreview();
         this.nextStep();
@@ -469,7 +500,7 @@ const App = {
             outro_text: outroText,
             skip: false,
         });
-        document.getElementById('status-chart').classList.add('done');
+        this.markStepDone('status-chart');
         this.showToast('Chart confirmed');
         this.refreshPreview();
         this.nextStep();
@@ -481,7 +512,7 @@ const App = {
             image_url: '',
             skip: true,
         });
-        document.getElementById('status-chart').classList.add('done');
+        this.markStepDone('status-chart');
         this.nextStep();
     },
 
@@ -543,7 +574,7 @@ const App = {
         if (indices.length === 0) { this.showToast('Select at least one article, or click Skip.', 'error'); return; }
 
         await this.api('POST', '/api/step/more-articles/select', { indices, skip: false });
-        document.getElementById('status-more_articles').classList.add('done');
+        this.markStepDone('status-more_articles');
         this.showToast(`${indices.length} more article${indices.length > 1 ? 's' : ''} confirmed`);
         this.refreshPreview();
         this.nextStep();
@@ -551,7 +582,7 @@ const App = {
 
     async skipMoreArticles() {
         await this.api('POST', '/api/step/more-articles/select', { indices: [], skip: true });
-        document.getElementById('status-more_articles').classList.add('done');
+        this.markStepDone('status-more_articles');
         this.nextStep();
     },
 
@@ -572,7 +603,7 @@ const App = {
             alt_text: altText,
             skip: false,
         });
-        document.getElementById('status-banner').classList.add('done');
+        this.markStepDone('status-banner');
         this.showToast('Banner confirmed');
         this.refreshPreview();
         this.nextStep();
@@ -580,7 +611,7 @@ const App = {
 
     async skipBanner() {
         await this.api('POST', '/api/step/banner/select', { skip: true });
-        document.getElementById('status-banner').classList.add('done');
+        this.markStepDone('status-banner');
         this.nextStep();
     },
 
@@ -647,7 +678,7 @@ const App = {
         };
 
         await this.api('POST', '/api/step/podcast/select', body);
-        document.getElementById('status-podcast').classList.add('done');
+        this.markStepDone('status-podcast');
         this.showToast('Podcast confirmed');
         this.refreshPreview();
         this.nextStep();
@@ -710,7 +741,7 @@ const App = {
         if (indices.length === 0) { this.showToast('Select at least one world article.', 'error'); return; }
 
         await this.api('POST', '/api/step/world/select', { indices });
-        document.getElementById('status-world_articles').classList.add('done');
+        this.markStepDone('status-world_articles');
         this.showToast(`${indices.length} world article${indices.length > 1 ? 's' : ''} confirmed`);
         this.refreshPreview();
         this.nextStep();
@@ -735,7 +766,7 @@ const App = {
                 Saved to: <code>${this.esc(data.output_file || '')}</code>
             `;
             resultBox.classList.remove('hidden');
-            document.getElementById('status-assemble').classList.add('done');
+            this.markStepDone('status-assemble');
             this.refreshPreview();
         } finally {
             this.setLoading('assembleLoading', false);
@@ -804,6 +835,7 @@ const App = {
         this.customNewsUrls = [];
         // Reset UI
         document.querySelectorAll('.step-status').forEach(el => el.classList.remove('done'));
+        document.querySelectorAll('.step-btn').forEach(el => el.classList.remove('completed'));
         document.getElementById('regionBadge').textContent = 'No region selected';
         document.querySelectorAll('.card-list').forEach(el => { el.innerHTML = ''; });
         document.getElementById('previewFrame').srcdoc =
