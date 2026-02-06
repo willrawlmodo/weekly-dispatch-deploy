@@ -194,8 +194,16 @@
                             <select id="chartSourceArticle"></select>
                         </div>
                         <div class="input-group">
-                            <label>Chart image (URL or local path):</label>
-                            <input type="text" id="chartImage" placeholder="https://... or /Users/.../chart.png" />
+                            <label>Chart image URL:</label>
+                            <input type="text" id="chartImage" placeholder="https://..." />
+                        </div>
+                        <div class="input-group">
+                            <label>Or upload an image file:</label>
+                            <input type="file" id="chartImageFile" accept="image/*" onchange="App.uploadChartImage(this)" />
+                            <div id="chartUploadStatus" class="hidden" style="margin-top:6px; font-size:13px; color:#666;"></div>
+                            <div id="chartImagePreview" class="hidden" style="margin-top:8px;">
+                                <img id="chartImageThumb" style="max-width:300px; max-height:200px; border:1px solid #ddd; border-radius:4px;" />
+                            </div>
                         </div>
                         <button class="btn" onclick="App.generateChartText()">✨ Generate Text</button>
                         <div class="loading hidden" id="chartLoading">Generating...</div>
@@ -318,10 +326,16 @@
                             <button class="btn btn-primary btn-lg" onclick="App.assembleNewsletter()">
                                 📄 Assemble Newsletter
                             </button>
+                            <button class="btn btn-lg btn-download" onclick="App.downloadNewsletter()">
+                                ⬇ Download HTML
+                            </button>
                             <button class="btn btn-lg" onclick="App.publishHubspot()">
                                 📤 Publish to HubSpot
                             </button>
                         </div>
+                        <p class="step-hint" style="margin-top:8px; font-size:13px; color:#888;">
+                            Download the HTML to manually upload to HubSpot, or publish directly if your API token is configured.
+                        </p>
                         <div class="loading hidden" id="assembleLoading">Assembling...</div>
                         <div id="assembleResult" class="result-box hidden"></div>
                     </section>

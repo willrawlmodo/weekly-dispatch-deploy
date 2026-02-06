@@ -232,6 +232,8 @@ body {
 .btn-danger:hover { background: var(--danger); color: #fff; }
 .btn-sm { padding: 5px 10px; font-size: 12px; }
 .btn-lg { padding: 12px 24px; font-size: 15px; }
+.btn-download { background: #3498db; color: #fff; border-color: #3498db; }
+.btn-download:hover { background: #2980b9; border-color: #2980b9; }
 .btn-row { display: flex; gap: 8px; margin-top: 12px; }
 
 /* ── Region cards ── */

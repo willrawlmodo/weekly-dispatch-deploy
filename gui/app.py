@@ -10,6 +10,7 @@ Run: python -m gui.app
 import sys
 import os
 import json
+import uuid
 import webbrowser
 import threading
 from pathlib import Path
@@ -18,7 +19,7 @@ from typing import List, Dict, Optional
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 import uvicorn
 
@@ -47,7 +48,13 @@ app = FastAPI(title="Weekly Dispatch GUI", version="1.0.0")
 
 # Serve static files (HTML/CSS/JS frontend)
 STATIC_DIR = Path(__file__).parent / "static"
+
+# Uploads directory for chart images, banners, etc.
+UPLOADS_DIR = PROJECT_ROOT / "uploads"
+UPLOADS_DIR.mkdir(exist_ok=True)
+
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 # ── Shared instances ────────────────────────────────────────
 
@@ -143,6 +150,25 @@ async def load_checkpoint():
         content_generator.set_region(state.region)
         return {"status": "loaded", "state": state.to_dict()}
     raise HTTPException(404, "No checkpoint found")
+
+
+# ═══════════════════════════════════════════════════════════
+#  FILE UPLOAD
+# ═══════════════════════════════════════════════════════════
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload a file (image) and return a URL to access it."""
+    ext = Path(file.filename or "image.png").suffix.lower()
+    if ext not in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}:
+        raise HTTPException(400, f"Unsupported file type: {ext}")
+
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    dest = UPLOADS_DIR / unique_name
+    contents = await file.read()
+    dest.write_bytes(contents)
+
+    return {"url": f"/uploads/{unique_name}", "filename": file.filename}
 
 
 # ═══════════════════════════════════════════════════════════
@@ -611,7 +637,7 @@ async def assemble_newsletter():
 
 @app.post("/api/publish/hubspot")
 async def publish_hubspot(body: HubSpotPublish):
-    """Publish to HubSpot as a draft email."""
+    """Publish to HubSpot as a draft email (non-interactive, no input() calls)."""
     if not HUBSPOT_AVAILABLE:
         raise HTTPException(501, "HubSpot integration not available. Install the hubspot package.")
 
@@ -626,12 +652,19 @@ async def publish_hubspot(body: HubSpotPublish):
         hubspot.settings["from_email"] = config.get("from_email", hubspot.settings["from_email"])
         hubspot.settings["image_folder"] = config.get("image_folder", hubspot.settings["image_folder"])
 
-        result = hubspot.publish_newsletter(
+        # Test connection first
+        if not hubspot.test_connection():
+            raise HTTPException(401, "Cannot connect to HubSpot. Check your HUBSPOT_API_TOKEN in .env or environment variables.")
+
+        # Upload images if requested (non-interactive)
+        if body.upload_images:
+            html = hubspot.upload_newsletter_images(html, state.content)
+
+        # Create email draft directly (bypassing publish_newsletter which uses input())
+        result = hubspot.create_email_draft(
             html=html,
-            content=state.content,
             subject=metadata["subject"],
             preview_text=metadata["preview_text"],
-            upload_images=body.upload_images,
         )
 
         if result:
@@ -643,9 +676,34 @@ async def publish_hubspot(body: HubSpotPublish):
         raise HTTPException(500, "HubSpot publish returned no result")
 
     except FileNotFoundError as e:
-        raise HTTPException(401, f"HubSpot credential not found: {e}")
+        raise HTTPException(401, f"HubSpot credential not found: {e}. Set HUBSPOT_API_TOKEN in your .env file or environment variables.")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"HubSpot error: {e}")
+
+
+@app.get("/api/download")
+async def download_newsletter():
+    """Download the assembled newsletter HTML file."""
+    try:
+        html = assembler.assemble(state.content)
+        subject = state.content.get("subject", "newsletter")
+        # Sanitize filename
+        safe_subject = "".join(c if c.isalnum() or c in " -_" else "" for c in subject).strip()
+        safe_subject = safe_subject.replace(" ", "_")[:50] or "newsletter"
+        timestamp = datetime.now().strftime("%Y%m%d")
+        filename = f"weekly_dispatch_{safe_subject}_{timestamp}.html"
+
+        return Response(
+            content=html,
+            media_type="text/html",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Download error: {e}")
 
 
 # ═══════════════════════════════════════════════════════════

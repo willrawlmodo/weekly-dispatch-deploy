@@ -401,10 +401,44 @@ const App = {
         }).catch(() => {});
     },
 
+    async uploadChartImage(input) {
+        const file = input.files && input.files[0];
+        if (!file) return;
+
+        const statusEl = document.getElementById('chartUploadStatus');
+        statusEl.textContent = 'Uploading...';
+        statusEl.classList.remove('hidden');
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Upload failed');
+
+            // Convert relative URL to absolute for the HTML template
+            const absUrl = window.location.origin + data.url;
+            document.getElementById('chartImage').value = absUrl;
+
+            // Show preview
+            const preview = document.getElementById('chartImagePreview');
+            const thumb = document.getElementById('chartImageThumb');
+            thumb.src = data.url;
+            preview.classList.remove('hidden');
+
+            statusEl.textContent = `Uploaded: ${data.filename}`;
+            this.showToast('Chart image uploaded');
+        } catch (e) {
+            statusEl.textContent = `Upload failed: ${e.message}`;
+            this.showToast('Image upload failed: ' + e.message, 'error');
+        }
+    },
+
     async generateChartText() {
         const sourceIdx = parseInt(document.getElementById('chartSourceArticle').value, 10) || 0;
         const imageUrl = document.getElementById('chartImage').value.trim();
-        if (!imageUrl) { this.showToast('Enter a chart image URL or path.', 'error'); return; }
+        if (!imageUrl) { this.showToast('Enter a chart image URL or upload a file.', 'error'); return; }
 
         this.setLoading('chartLoading', true);
         try {
@@ -708,6 +742,17 @@ const App = {
         }
     },
 
+    downloadNewsletter() {
+        // Trigger HTML download via the download endpoint
+        const link = document.createElement('a');
+        link.href = '/api/download';
+        link.download = '';  // browser will use Content-Disposition filename
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        this.showToast('Downloading newsletter HTML...');
+    },
+
     async publishHubspot() {
         if (!confirm('Publish this newsletter as a draft to HubSpot?')) return;
 
@@ -720,6 +765,15 @@ const App = {
                 <strong>Published to HubSpot.</strong><br>
                 Email ID: ${this.esc(data.email_id || '')}<br>
                 ${this.esc(data.message || '')}
+            `;
+            resultBox.classList.remove('hidden');
+            this.showToast('Draft created in HubSpot');
+        } catch (e) {
+            // Error already shown by api() — add helpful hint
+            resultBox.innerHTML = `
+                <strong style="color:#c00;">HubSpot publish failed.</strong><br>
+                ${this.esc(e.message)}<br><br>
+                <strong>Tip:</strong> Use the <em>Download HTML</em> button instead, then manually upload to HubSpot.
             `;
             resultBox.classList.remove('hidden');
         } finally {
