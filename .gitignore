@@ -40,6 +40,7 @@ env/
 
 # Output files
 output/
+uploads/
 *.html
 !templates/*.html
 !gui/static/*.html
