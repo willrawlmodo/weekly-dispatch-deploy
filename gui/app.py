@@ -119,9 +119,24 @@ class CookieAuthMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(CookieAuthMiddleware)
 
-# ── Shared instances ────────────────────────────────────────
+# ── Per-session state ───────────────────────────────────────
 
-state = SessionState()
+_sessions: Dict[str, SessionState] = {}
+_DEFAULT_SESSION = "__local__"  # fallback key when auth is disabled
+
+
+def get_session_state(request: Request) -> SessionState:
+    """Get (or create) the SessionState for the current user's session."""
+    token = request.cookies.get("dispatch_session")
+    key = token if (token and token in _valid_sessions) else _DEFAULT_SESSION
+
+    if key not in _sessions:
+        _sessions[key] = SessionState()
+    return _sessions[key]
+
+
+# ── Shared instances (stateless, safe to share) ────────────
+
 modo_scraper = ModoArticleScraper()
 youtube_scraper = YouTubePodcastScraper()
 news_scraper = NewsSourcesScraper()
@@ -220,10 +235,11 @@ async def login(creds: LoginRequest):
 
 @app.post("/auth/logout")
 async def logout(request: Request):
-    """Clear session cookie and redirect to login."""
+    """Clear session cookie, state, and redirect to login."""
     token = request.cookies.get("dispatch_session")
     if token:
         _valid_sessions.discard(token)
+        _sessions.pop(token, None)
 
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("dispatch_session")
@@ -241,26 +257,30 @@ async def index():
 
 
 @app.get("/api/state")
-async def get_state():
+async def get_state(request: Request):
     """Return full session state for frontend hydration."""
+    state = get_session_state(request)
     return state.to_dict()
 
 
 @app.post("/api/reset")
-async def reset_state():
+async def reset_state(request: Request):
     """Reset all state and start fresh."""
+    state = get_session_state(request)
     state.reset()
     return {"status": "reset"}
 
 
 @app.post("/api/checkpoint/save")
-async def save_checkpoint():
+async def save_checkpoint(request: Request):
+    state = get_session_state(request)
     path = state.save_checkpoint()
     return {"status": "saved", "path": path}
 
 
 @app.post("/api/checkpoint/load")
-async def load_checkpoint():
+async def load_checkpoint(request: Request):
+    state = get_session_state(request)
     loaded = state.load_checkpoint()
     if loaded:
         content_generator.set_region(state.region)
@@ -303,8 +323,9 @@ async def get_regions():
 
 
 @app.post("/api/step/region")
-async def select_region(body: RegionSelect):
+async def select_region(body: RegionSelect, request: Request):
     """Set the newsletter region."""
+    state = get_session_state(request)
     try:
         result = state.set_region(body.region)
         content_generator.set_region(body.region)
@@ -318,8 +339,9 @@ async def select_region(body: RegionSelect):
 # ═══════════════════════════════════════════════════════════
 
 @app.get("/api/step/articles/fetch")
-async def fetch_articles(days: int = 7):
+async def fetch_articles(request: Request, days: int = 7):
     """Scrape Modo Terminal for recent articles in the selected region."""
+    state = get_session_state(request)
     config = REGION_CONFIG.get(state.region, {})
     region = config.get("article_region", "us")
 
@@ -343,8 +365,9 @@ async def fetch_articles(days: int = 7):
 
 
 @app.post("/api/step/articles/select")
-async def select_articles(body: ArticleSelect):
+async def select_articles(body: ArticleSelect, request: Request):
     """Save user's featured article selections."""
+    state = get_session_state(request)
     selected = []
     for idx in body.indices:
         if 0 <= idx < len(state._article_cache):
@@ -362,8 +385,9 @@ async def select_articles(body: ArticleSelect):
 # ═══════════════════════════════════════════════════════════
 
 @app.get("/api/step/subject/generate")
-async def generate_subjects():
+async def generate_subjects(request: Request):
     """Generate AI subject line suggestions from featured articles."""
+    state = get_session_state(request)
     articles = state.content.get("featured_articles", [])
     if not articles:
         raise HTTPException(400, "No featured articles set. Complete Step 1 first.")
@@ -373,8 +397,9 @@ async def generate_subjects():
 
 
 @app.post("/api/step/subject/select")
-async def select_subject(body: SubjectSelect):
+async def select_subject(body: SubjectSelect, request: Request):
     """Save the chosen subject line."""
+    state = get_session_state(request)
     state.set_subject(body.subject)
     return {"subject": body.subject}
 
@@ -384,8 +409,9 @@ async def select_subject(body: SubjectSelect):
 # ═══════════════════════════════════════════════════════════
 
 @app.get("/api/step/intro/generate")
-async def generate_intro():
+async def generate_intro(request: Request):
     """Generate AI intro paragraph from featured articles."""
+    state = get_session_state(request)
     articles = state.content.get("featured_articles", [])
     if not articles:
         raise HTTPException(400, "No featured articles set. Complete Step 1 first.")
@@ -395,8 +421,9 @@ async def generate_intro():
 
 
 @app.post("/api/step/intro/select")
-async def select_intro(body: IntroSelect):
+async def select_intro(body: IntroSelect, request: Request):
     """Save the intro text (may be edited by user)."""
+    state = get_session_state(request)
     state.set_intro_text(body.intro_text)
     return {"intro_text": body.intro_text}
 
@@ -406,8 +433,9 @@ async def select_intro(body: IntroSelect):
 # ═══════════════════════════════════════════════════════════
 
 @app.get("/api/step/news/fetch")
-async def fetch_news(region: Optional[str] = None):
+async def fetch_news(request: Request, region: Optional[str] = None):
     """Fetch battery/energy storage news via RSS."""
+    state = get_session_state(request)
     news_region = region or REGION_CONFIG.get(state.region, {}).get("news_region", "us")
     news = news_scraper.get_news(days=8, limit=20, region=news_region)
     state._news_cache = news
@@ -430,8 +458,9 @@ async def fetch_news(region: Optional[str] = None):
 
 
 @app.post("/api/step/news/select")
-async def select_news(body: NewsSelect):
+async def select_news(body: NewsSelect, request: Request):
     """Save selected news items. Formats them with AI."""
+    state = get_session_state(request)
     selected = []
     for idx in body.indices:
         if 0 <= idx < len(state._news_cache):
@@ -472,8 +501,9 @@ async def select_news(body: NewsSelect):
 # ═══════════════════════════════════════════════════════════
 
 @app.post("/api/step/chart/generate-text")
-async def generate_chart_text(body: ChartSubmit):
+async def generate_chart_text(body: ChartSubmit, request: Request):
     """Generate AI intro/outro text for the chart."""
+    state = get_session_state(request)
     if body.skip:
         state.skip_chart()
         return {"status": "skipped"}
@@ -492,8 +522,9 @@ async def generate_chart_text(body: ChartSubmit):
 
 
 @app.post("/api/step/chart/select")
-async def select_chart(body: ChartSubmit):
+async def select_chart(body: ChartSubmit, request: Request):
     """Save chart of the week configuration."""
+    state = get_session_state(request)
     if body.skip:
         state.skip_chart()
         return {"status": "skipped"}
@@ -523,8 +554,9 @@ class MoreArticlesSelect(BaseModel):
 
 
 @app.get("/api/step/more-articles/fetch")
-async def fetch_more_articles(days: int = 14):
+async def fetch_more_articles(request: Request, days: int = 14):
     """Fetch articles for the 'More from Modo Energy' section, excluding featured."""
+    state = get_session_state(request)
     config = REGION_CONFIG.get(state.region, {})
     region = config.get("article_region", "us")
 
@@ -553,8 +585,9 @@ async def fetch_more_articles(days: int = 14):
 
 
 @app.post("/api/step/more-articles/select")
-async def select_more_articles(body: MoreArticlesSelect):
+async def select_more_articles(body: MoreArticlesSelect, request: Request):
     """Save additional article selections (or skip)."""
+    state = get_session_state(request)
     if body.skip:
         state.skip_more_articles()
         return {"status": "skipped"}
@@ -574,8 +607,9 @@ async def select_more_articles(body: MoreArticlesSelect):
 # ═══════════════════════════════════════════════════════════
 
 @app.post("/api/step/banner/select")
-async def select_banner(body: BannerSubmit):
+async def select_banner(body: BannerSubmit, request: Request):
     """Save or skip the promotional banner."""
+    state = get_session_state(request)
     if body.skip:
         state.set_promotional_banner(None)
         return {"status": "skipped"}
@@ -593,8 +627,9 @@ async def select_banner(body: BannerSubmit):
 # ═══════════════════════════════════════════════════════════
 
 @app.get("/api/step/podcast/fetch")
-async def fetch_podcasts():
+async def fetch_podcasts(request: Request):
     """Fetch recent Transmission podcast episodes from YouTube."""
+    state = get_session_state(request)
     episodes = youtube_scraper.get_recent_episodes(limit=4)
     state._podcast_cache = episodes
 
@@ -617,8 +652,9 @@ async def fetch_podcasts():
 
 
 @app.post("/api/step/podcast/select")
-async def select_podcast(body: PodcastSelect):
+async def select_podcast(body: PodcastSelect, request: Request):
     """Save podcast section configuration."""
+    state = get_session_state(request)
     # Get episode from cache
     episode = {}
     if 0 <= body.episode_index < len(state._podcast_cache):
@@ -661,8 +697,9 @@ async def select_podcast(body: PodcastSelect):
 # ═══════════════════════════════════════════════════════════
 
 @app.get("/api/step/world/fetch")
-async def fetch_world_articles(days: int = 14):
+async def fetch_world_articles(request: Request, days: int = 14):
     """Fetch articles from other regions (cross-promotion)."""
+    state = get_session_state(request)
     if state.region == "us":
         articles = modo_scraper.get_articles(region="gb_europe", days=days, limit=10)
         aus = modo_scraper.get_articles(region="australia", days=days, limit=5)
@@ -692,8 +729,9 @@ async def fetch_world_articles(days: int = 14):
 
 
 @app.post("/api/step/world/select")
-async def select_world_articles(body: WorldSelect):
+async def select_world_articles(body: WorldSelect, request: Request):
     """Save world article selections."""
+    state = get_session_state(request)
     selected = []
     for idx in body.indices:
         if 0 <= idx < len(state._world_article_cache):
@@ -708,8 +746,9 @@ async def select_world_articles(body: WorldSelect):
 # ═══════════════════════════════════════════════════════════
 
 @app.get("/api/preview")
-async def preview_newsletter():
+async def preview_newsletter(request: Request):
     """Assemble current content into HTML and return it for preview."""
+    state = get_session_state(request)
     try:
         html = assembler.assemble(state.content)
         return {"html": html, "subject": state.content.get("subject", "")}
@@ -718,8 +757,9 @@ async def preview_newsletter():
 
 
 @app.post("/api/assemble")
-async def assemble_newsletter():
+async def assemble_newsletter(request: Request):
     """Final assembly: save HTML to output/ and return metadata."""
+    state = get_session_state(request)
     try:
         html = assembler.assemble(state.content)
         metadata = assembler.get_email_metadata(state.content)
@@ -752,8 +792,9 @@ async def assemble_newsletter():
 
 
 @app.post("/api/publish/hubspot")
-async def publish_hubspot(body: HubSpotPublish):
+async def publish_hubspot(body: HubSpotPublish, request: Request):
     """Publish to HubSpot as a draft email (non-interactive, no input() calls)."""
+    state = get_session_state(request)
     if not HUBSPOT_AVAILABLE:
         raise HTTPException(501, "HubSpot integration not available. Install the hubspot package.")
 
@@ -800,8 +841,9 @@ async def publish_hubspot(body: HubSpotPublish):
 
 
 @app.get("/api/download")
-async def download_newsletter():
+async def download_newsletter(request: Request):
     """Download the assembled newsletter HTML file."""
+    state = get_session_state(request)
     try:
         html = assembler.assemble(state.content)
         subject = state.content.get("subject", "newsletter")
