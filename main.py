@@ -3,23 +3,14 @@
 Weekly Dispatch Newsletter Agent
 
 Interactive CLI tool to generate the Modo Energy Weekly Dispatch newsletter.
-
-Usage:
-    python3 main.py              # Normal interactive mode
-    python3 main.py --preview    # Dry run with cached/dummy content
-    python3 main.py --resume     # Resume from last checkpoint
 """
 
 import os
 import re
 import sys
-import json
-import argparse
-import webbrowser
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
-from difflib import SequenceMatcher
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -36,13 +27,6 @@ try:
     HUBSPOT_AVAILABLE = True
 except ImportError:
     HUBSPOT_AVAILABLE = False
-
-# Optional Slack integration
-try:
-    import requests as slack_requests
-    SLACK_AVAILABLE = True
-except ImportError:
-    SLACK_AVAILABLE = False
 
 
 class NewsletterAgent:
@@ -90,34 +74,30 @@ class NewsletterAgent:
             "name": "US",
             "header_url": "https://25093280.fs1.hubspotusercontent-eu1.net/hubfs/25093280/Screenshot%202026-01-23%20at%2021.48.06.png",
             "header_alt": "MODOENERGY Weekly Dispatch US Edition",
-            "article_region": "us",
+            "article_region": "non_europe",
             "news_region": "us",
             "from_name": "Brandt Vermillion",
             "from_email": "brandt@modoenergy.com",
             "image_folder": "US Weekly Dispatch",
-            "covered_isos": ["ERCOT", "MISO", "CAISO", "PJM", "NYISO", "ISO-NE", "SPP"],
             "include_lists": [
-                # ERCOT lists
                 "Weekly Newsletter - ERCOT",
-                "ERCOT livestream (July 2025) signups",
-                "Webinar follow-up ERCOT BESS 7/29",
-                "ERCOT Livestream Q3 2025 non-attendees",
-                "ERCOT Market Summit 2024 - Leads",
-                # General US lists
                 "US Growth US Outreach",
                 "Feb 26 2025 US BESS briefing list",
                 "US Research Sequence [Sept 25]",
                 "USA livestream registrants - October 2025",
                 "ESS USA 2025 attendees - Registrant List.csv",
+                "ERCOT livestream (July 2025) signups",
+                "Webinar follow-up ERCOT BESS 7/29",
                 "US BESS Operators and Optimizers viewers",
+                "ERCOT Livestream Q3 2025 non-attendees",
                 "US Research Outbound",
                 "US Customer Contacts - no GB overlap",
                 "US Customer Contacts - multi-region under Matt",
+                "ERCOT Market Summit 2024 - Leads",
                 "Paying customers in North America (Neil's bodgejob list)"
             ],
             "exclude_lists": [
-                "Opted out of weekly newsletter",
-                "Marketing suppression list (unsubscribed from ALL email or Sales want excluded)"
+                "Opted out of weekly newsletter"
             ],
             "exclude_emails": [
                 "tim+03@modoenergy.com",
@@ -161,17 +141,7 @@ class NewsletterAgent:
         }
     }
 
-    # Checkpoint file for save/resume
-    CHECKPOINT_FILE = Path(__file__).parent / '.workflow_checkpoint.json'
-    
-    # Slack webhook URL (set via environment variable or config)
-    SLACK_WEBHOOK_URL = os.getenv('SLACK_WEBHOOK_URL', '')
-    SLACK_CHANNEL = os.getenv('SLACK_CHANNEL', '#weekly-dispatch')
-
-    def __init__(self, dry_run: bool = False, resume: bool = False):
-        self.dry_run = dry_run
-        self.resume = resume
-        
+    def __init__(self):
         self.modo_scraper = ModoArticleScraper()
         self.youtube_scraper = YouTubePodcastScraper()
         self.news_scraper = NewsSourcesScraper()
@@ -180,16 +150,9 @@ class NewsletterAgent:
 
         # Collected content
         self.content = {}
-        
-        # Track completed steps for checkpointing
-        self.completed_steps = []
 
-        # Selected region (set during workflow) - default to US for this fork
-        self.selected_region = "us"
-        
-        # Load checkpoint if resuming
-        if resume and self.CHECKPOINT_FILE.exists():
-            self._load_checkpoint()
+        # Selected region (set during workflow)
+        self.selected_region = "europe"
 
     def _validate_image_url(self, url: str) -> str:
         """
@@ -232,385 +195,41 @@ class NewsletterAgent:
 
         return ''
 
-    # ==================== CHECKPOINT METHODS ====================
-    
-    def _save_checkpoint(self, step_name: str):
-        """Save current progress to checkpoint file."""
-        checkpoint = {
-            'timestamp': datetime.now().isoformat(),
-            'selected_region': self.selected_region,
-            'completed_steps': self.completed_steps,
-            'content': self.content
-        }
-        try:
-            with open(self.CHECKPOINT_FILE, 'w') as f:
-                json.dump(checkpoint, f, indent=2, default=str)
-            print(f"    💾 Progress saved (step: {step_name})")
-        except Exception as e:
-            print(f"    ⚠ Could not save checkpoint: {e}")
-    
-    def _load_checkpoint(self):
-        """Load progress from checkpoint file."""
-        try:
-            with open(self.CHECKPOINT_FILE, 'r') as f:
-                checkpoint = json.load(f)
-            
-            self.selected_region = checkpoint.get('selected_region', 'us')
-            self.completed_steps = checkpoint.get('completed_steps', [])
-            self.content = checkpoint.get('content', {})
-            
-            timestamp = checkpoint.get('timestamp', 'unknown')
-            print(f"\n✓ Loaded checkpoint from {timestamp}")
-            print(f"  Completed steps: {', '.join(self.completed_steps) if self.completed_steps else 'None'}")
-            print(f"  Region: {self.selected_region}")
-            
-            # Set region on content generator
-            self.content_generator.set_region(self.selected_region)
-            
-        except Exception as e:
-            print(f"\n⚠ Could not load checkpoint: {e}")
-            print("  Starting fresh...")
-            self.completed_steps = []
-            self.content = {}
-    
-    def _clear_checkpoint(self):
-        """Remove checkpoint file after successful completion."""
-        try:
-            if self.CHECKPOINT_FILE.exists():
-                self.CHECKPOINT_FILE.unlink()
-                print("    🗑 Checkpoint cleared")
-        except Exception as e:
-            print(f"    ⚠ Could not clear checkpoint: {e}")
-    
-    def _should_skip_step(self, step_name: str) -> bool:
-        """Check if step was already completed (for resume mode)."""
-        if self.resume and step_name in self.completed_steps:
-            print(f"\n[SKIPPING] {step_name} (already completed)")
-            return True
-        return False
-    
-    def _mark_step_complete(self, step_name: str):
-        """Mark a step as complete and save checkpoint."""
-        if step_name not in self.completed_steps:
-            self.completed_steps.append(step_name)
-        self._save_checkpoint(step_name)
-
-    # ==================== ISO DETECTION ====================
-    
-    ISO_KEYWORDS = {
-        'ERCOT': ['ercot', 'texas grid', 'texas power', 'oncor', 'centerpoint texas'],
-        'MISO': ['miso', 'midcontinent', 'midcon'],
-        'CAISO': ['caiso', 'california iso', 'california grid', 'cpuc'],
-        'PJM': ['pjm', 'mid-atlantic'],
-        'NYISO': ['nyiso', 'new york iso', 'new york grid', 'con edison', 'nyserda'],
-        'ISO-NE': ['iso-ne', 'iso ne', 'new england iso', 'new england grid'],
-        'SPP': ['spp', 'southwest power pool'],
-    }
-    
-    def _detect_isos(self, text: str) -> List[str]:
-        """Detect which ISOs are mentioned in text."""
-        text_lower = text.lower()
-        detected = []
-        for iso, keywords in self.ISO_KEYWORDS.items():
-            if any(kw in text_lower for kw in keywords):
-                detected.append(iso)
-        return detected
-    
-    def _add_iso_tags_to_articles(self, articles: List[Dict]) -> List[Dict]:
-        """Add ISO tags to news articles based on content."""
-        for article in articles:
-            text = f"{article.get('title', '')} {article.get('description', '')}"
-            isos = self._detect_isos(text)
-            article['_detected_isos'] = isos
-        return articles
-
-    # ==================== DUPLICATE DETECTION ====================
-    
-    def _similarity_score(self, s1: str, s2: str) -> float:
-        """Calculate similarity between two strings (0-1 scale)."""
-        return SequenceMatcher(None, s1.lower(), s2.lower()).ratio()
-    
-    def _find_duplicates(self, articles: List[Dict], threshold: float = 0.65) -> List[tuple]:
-        """
-        Find potential duplicate articles based on headline similarity.
-        
-        Returns list of tuples: (index1, index2, similarity_score)
-        """
-        duplicates = []
-        for i, art1 in enumerate(articles):
-            for j, art2 in enumerate(articles[i+1:], start=i+1):
-                title1 = art1.get('title', '')
-                title2 = art2.get('title', '')
-                score = self._similarity_score(title1, title2)
-                if score >= threshold:
-                    duplicates.append((i, j, score))
-        return duplicates
-    
-    def _display_with_duplicate_warnings(self, articles: List[Dict], label: str = "articles", show_isos: bool = False):
-        """
-        Display articles with duplicate warnings and optional ISO tags.
-        """
-        duplicates = self._find_duplicates(articles)
-        duplicate_indices = set()
-        for i, j, _ in duplicates:
-            duplicate_indices.add(i)
-            duplicate_indices.add(j)
-        
-        # Add ISO tags if requested and for US region
-        if show_isos:
-            articles = self._add_iso_tags_to_articles(articles)
-        
-        print(f"\nFound {len(articles)} {label}:\n")
-        for i, article in enumerate(articles, 1):
-            source = article.get('source', 'Unknown')
-            title = article['title'][:50] + '...' if len(article.get('title', '')) > 50 else article.get('title', '')
-            
-            # ISO tags
-            iso_tags = ""
-            if show_isos:
-                isos = article.get('_detected_isos', [])
-                if isos:
-                    iso_tags = f" [{', '.join(isos)}]"
-            
-            # Check if this article has a duplicate
-            dup_warning = ""
-            for idx1, idx2, score in duplicates:
-                if i-1 == idx1:
-                    dup_warning = f" ⚠️ DUP #{idx2+1}"
-                    break
-                elif i-1 == idx2:
-                    dup_warning = f" ⚠️ DUP #{idx1+1}"
-                    break
-            
-            print(f"  {i}. [{source}]{iso_tags} {title}{dup_warning}")
-        
-        if duplicates:
-            print(f"\n  ⚠️ {len(duplicates)} potential duplicate(s) detected - consider picking only one")
-
-    # ==================== SLACK NOTIFICATION ====================
-    
-    def _send_slack_notification(self, subject: str, hubspot_id: str = None):
-        """
-        Send Slack notification when HubSpot draft is ready.
-        """
-        if not SLACK_AVAILABLE or not self.SLACK_WEBHOOK_URL:
-            return
-        
-        try:
-            region_config = self.REGION_CONFIG.get(self.selected_region, {})
-            region_name = region_config.get('name', 'Unknown')
-            
-            message = {
-                "channel": self.SLACK_CHANNEL,
-                "username": "Weekly Dispatch Bot",
-                "icon_emoji": ":newspaper:",
-                "blocks": [
-                    {
-                        "type": "header",
-                        "text": {
-                            "type": "plain_text",
-                            "text": f"📬 Weekly Dispatch Draft Ready ({region_name})"
-                        }
-                    },
-                    {
-                        "type": "section",
-                        "fields": [
-                            {
-                                "type": "mrkdwn",
-                                "text": f"*Subject:*\n{subject}"
-                            },
-                            {
-                                "type": "mrkdwn",
-                                "text": f"*Region:*\n{region_name}"
-                            }
-                        ]
-                    },
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": "Draft is ready for review in HubSpot."
-                        }
-                    }
-                ]
-            }
-            
-            if hubspot_id:
-                message["blocks"].append({
-                    "type": "actions",
-                    "elements": [
-                        {
-                            "type": "button",
-                            "text": {
-                                "type": "plain_text",
-                                "text": "Open in HubSpot"
-                            },
-                            "url": f"https://app.hubspot.com/email/25093280/edit/{hubspot_id}/settings"
-                        }
-                    ]
-                })
-            
-            response = slack_requests.post(
-                self.SLACK_WEBHOOK_URL,
-                json=message,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                print(f"    📣 Slack notification sent to {self.SLACK_CHANNEL}")
-            else:
-                print(f"    ⚠ Slack notification failed: {response.status_code}")
-                
-        except Exception as e:
-            print(f"    ⚠ Could not send Slack notification: {e}")
-
-    # ==================== BROWSER PREVIEW ====================
-    
-    def _preview_in_browser(self, html_path: Path):
-        """Open the newsletter HTML in the default browser for preview."""
-        try:
-            file_url = f'file://{html_path.absolute()}'
-            webbrowser.open(file_url)
-            print(f"    🌐 Opened preview in browser")
-        except Exception as e:
-            print(f"    ⚠ Could not open browser: {e}")
-
-    # ==================== DRY RUN MODE ====================
-    
-    def _get_dummy_content(self) -> Dict:
-        """Generate dummy content for dry run mode."""
-        return {
-            'region': 'us',
-            'region_name': 'US',
-            'header_url': self.REGION_CONFIG['us']['header_url'],
-            'header_alt': self.REGION_CONFIG['us']['header_alt'],
-            'subject': '[DRY RUN] Test Subject Line - BESS Market Update',
-            'preview_text': 'This is a test preview text for the dry run mode.',
-            'featured_articles': [
-                {
-                    'title': '[TEST] ERCOT Interconnection Queue Analysis',
-                    'description': 'A test article description for the dry run mode.',
-                    'url': 'https://modoenergy.com/research/en/test-article',
-                    'thumbnail_url': 'https://via.placeholder.com/600x400?text=Test+Thumbnail'
-                }
-            ],
-            'intro_text': '<p>This is a <strong>test intro paragraph</strong> generated during dry run mode. It includes a link to the <a href="https://modoenergy.com">test article</a>.</p>',
-            'news_items': [
-                {
-                    'headline': 'Test News Headline 1',
-                    'body': 'Test news body text for the first item.',
-                    'url': 'https://example.com/news1'
-                },
-                {
-                    'headline': 'Test News Headline 2',
-                    'body': 'Test news body text for the second item.',
-                    'url': 'https://example.com/news2'
-                }
-            ],
-            'chart': {
-                'image_url': 'https://via.placeholder.com/600x400?text=Chart+of+the+Week',
-                'intro': 'Test chart introduction text.',
-                'description': 'Test chart description explaining what the data shows.'
-            },
-            'podcast': {
-                'title': '[TEST] Transmission Episode - Guest Name',
-                'url': 'https://youtube.com/watch?v=test',
-                'thumbnail': 'https://via.placeholder.com/480x360?text=Podcast+Thumbnail',
-                'description': 'Test podcast description with <strong>guest name</strong> from <strong>Company</strong>.'
-            },
-            'world_articles': [
-                {
-                    'title': '[TEST] Europe Article 1',
-                    'url': 'https://modoenergy.com/research/en/test-europe',
-                    'thumbnail_url': 'https://via.placeholder.com/300x200?text=Europe+Article'
-                },
-                {
-                    'title': '[TEST] Australia Article 1',
-                    'url': 'https://modoenergy.com/research/en/test-australia',
-                    'thumbnail_url': 'https://via.placeholder.com/300x200?text=Australia+Article'
-                }
-            ]
-        }
-
     def run(self):
         """Run the interactive newsletter generation workflow."""
         self._print_header()
-        
-        # Handle dry run mode
-        if self.dry_run:
-            print("\n" + "=" * 60)
-            print("  DRY RUN MODE - Using dummy content")
-            print("=" * 60)
-            self.content = self._get_dummy_content()
-            self._step_assemble()
-            print("\n" + "=" * 60)
-            print("Dry run complete! Check the output to verify the pipeline.")
-            print("=" * 60)
-            return
-        
-        # Handle resume mode
-        if self.resume and self.completed_steps:
-            print(f"\n  Resuming from checkpoint...")
-            print(f"  Will skip: {', '.join(self.completed_steps)}")
-            input("\n  Press Enter to continue...")
 
         # Step 0: Select newsletter region
-        if not self._should_skip_step('region'):
-            self._step_select_region()
-            self._mark_step_complete('region')
+        self._step_select_region()
 
         self._print_session_checklist()
 
         # Step 1: Fetch and select featured articles
-        if not self._should_skip_step('featured_articles'):
-            self._step_featured_articles()
-            self._mark_step_complete('featured_articles')
+        self._step_featured_articles()
 
         # Step 2: Generate subject line
-        if not self._should_skip_step('subject_line'):
-            self._step_subject_line()
-            self._mark_step_complete('subject_line')
+        self._step_subject_line()
 
         # Step 3: Generate intro/preview text
-        if not self._should_skip_step('intro_text'):
-            self._step_intro_text()
-            self._mark_step_complete('intro_text')
+        self._step_intro_text()
 
         # Step 4: This week's news
-        if not self._should_skip_step('news_section'):
-            self._step_news_section()
-            self._mark_step_complete('news_section')
+        self._step_news_section()
 
         # Step 5: Chart of the week
-        if not self._should_skip_step('chart'):
-            self._step_chart_of_week()
-            self._mark_step_complete('chart')
-
-        # Step 5b: More articles (additional articles after chart)
-        if not self._should_skip_step('more_articles'):
-            self._step_more_articles()
-            self._mark_step_complete('more_articles')
+        self._step_chart_of_week()
 
         # Step 6: Promotional banner
-        if not self._should_skip_step('banner'):
-            self._step_promotional_banner()
-            self._mark_step_complete('banner')
+        self._step_promotional_banner()
 
         # Step 7: Podcast section
-        if not self._should_skip_step('podcast'):
-            self._step_podcast()
-            self._mark_step_complete('podcast')
+        self._step_podcast()
 
         # Step 8: More from around the world
-        if not self._should_skip_step('world_articles'):
-            self._step_world_articles()
-            self._mark_step_complete('world_articles')
+        self._step_world_articles()
 
         # Step 9: Assemble and output
         self._step_assemble()
-        
-        # Clear checkpoint on successful completion
-        self._clear_checkpoint()
 
         print("\n" + "=" * 60)
         print("Newsletter generation complete!")
@@ -629,18 +248,12 @@ class NewsletterAgent:
         print("\n[REGION SELECTION]")
         print("-" * 40)
         print("\nWhich edition are you creating?")
-        print("  1. US (ERCOT, MISO, CAISO, PJM, NYISO, ISO-NE, SPP) [DEFAULT]")
-        print("  2. Europe & GB")
+        print("  1. Europe & GB")
+        print("  2. US")
         print("  3. Australia")
-        
-        choice_input = input("\nEnter choice (1-3) [1]: ").strip()
-        choice = int(choice_input) if choice_input else 1
-        
-        if choice not in [1, 2, 3]:
-            print("Invalid choice, defaulting to US.")
-            choice = 1
-            
-        region_map = {1: "us", 2: "europe", 3: "australia"}
+
+        choice = self._get_choice(3)
+        region_map = {1: "europe", 2: "us", 3: "australia"}
         self.selected_region = region_map[choice]
 
         region_config = self.REGION_CONFIG[self.selected_region]
@@ -701,27 +314,17 @@ class NewsletterAgent:
         article_region = region_config['article_region']
         region_name = region_config['name']
 
-        # Adjustable day filter
-        days_input = input("\nHow many days to look back? (default: 7): ").strip()
-        featured_days = int(days_input) if days_input.isdigit() and int(days_input) > 0 else 7
-
-        print(f"\nFetching {region_name} articles from the last {featured_days} days...")
-        articles = self.modo_scraper.get_articles(region=article_region, days=featured_days)
+        print(f"\nFetching {region_name} articles from Modo Terminal...")
+        articles = self.modo_scraper.get_articles(region=article_region, days=7)
 
         if not articles:
             print("No articles found. Please enter manually.")
             articles = self._manual_article_entry(count=num_articles)
         else:
-            print(f"\nFound {len(articles)} articles from the last {featured_days} days:\n")
+            print(f"\nFound {len(articles)} articles from the last 7 days:\n")
             for i, article in enumerate(articles, 1):
-                date_raw = article.get('date', '')
-                try:
-                    from datetime import datetime as _dt
-                    date_display = _dt.strptime(date_raw, "%Y-%m-%dT%H:%M:%S%z").strftime("%b %d, %Y")
-                except (ValueError, TypeError):
-                    date_display = date_raw or 'Unknown'
                 print(f"  {i}. {article['title']}")
-                print(f"     Date: {date_display}")
+                print(f"     Date: {article.get('date', 'Unknown')}")
                 print()
 
             # Let user select articles based on chosen count
@@ -892,67 +495,6 @@ class NewsletterAgent:
 
         print("\n✓ Chart of the week configured")
 
-    def _step_more_articles(self):
-        """Step 5b: Additional articles after chart of the week."""
-        print("\n[STEP 5b] MORE ARTICLES")
-        print("-" * 40)
-        print("Add more articles below the chart? These render in a compact inline list.")
-        print("1. Yes, fetch and select articles")
-        print("2. No, skip this section")
-
-        if self._get_choice(2) == 2:
-            print("\n✓ Skipped more articles")
-            return
-
-        region_config = self.REGION_CONFIG[self.selected_region]
-        article_region = region_config['article_region']
-
-        days_input = input("\nHow many days to look back? (default: 14): ").strip()
-        more_days = int(days_input) if days_input.isdigit() and int(days_input) > 0 else 14
-
-        print(f"\nFetching articles from the last {more_days} days...")
-        articles = self.modo_scraper.get_articles(region=article_region, days=more_days, limit=20)
-
-        # Exclude articles already selected as featured
-        featured_slugs = {a.get('slug') for a in self.content.get('featured_articles', [])}
-        articles = [a for a in articles if a.get('slug') not in featured_slugs]
-
-        if not articles:
-            print("No additional articles found.")
-            return
-
-        print(f"\nFound {len(articles)} articles (excluding featured):\n")
-        for i, article in enumerate(articles, 1):
-            date_raw = article.get('date', '')
-            try:
-                from datetime import datetime as _dt
-                date_display = _dt.strptime(date_raw, "%Y-%m-%dT%H:%M:%S%z").strftime("%b %d, %Y")
-            except (ValueError, TypeError):
-                date_display = date_raw or 'Unknown'
-            print(f"  {i}. {article['title']}")
-            print(f"     {date_display}")
-
-        print(f"\nSelect up to 10 articles (comma-separated, e.g., 1,3,5):")
-        print("Or press Enter to skip:")
-        selection = input("Your selection: ").strip()
-
-        if not selection:
-            print("\n✓ Skipped more articles")
-            return
-
-        try:
-            indices = [int(x.strip()) - 1 for x in selection.split(',')]
-            selected = [articles[i] for i in indices[:10] if 0 <= i < len(articles)]
-        except (ValueError, IndexError):
-            print("Invalid selection. Skipping.")
-            return
-
-        if selected:
-            self.content['more_articles'] = selected
-            print(f"\n✓ {len(selected)} additional article{'s' if len(selected) > 1 else ''} selected")
-        else:
-            print("\n✓ No additional articles selected")
-
     def _step_promotional_banner(self):
         """Step 5: Promotional banner."""
         print("\n[STEP 6/9] PROMOTIONAL BANNER")
@@ -1094,15 +636,14 @@ class NewsletterAgent:
 
         # Show fetched news first
         if news:
-            # Show US news with ISO tags and duplicate detection
-            show_isos = (self.selected_region == 'us')
-            self._display_with_duplicate_warnings(news[:15], label="relevant news items", show_isos=show_isos)
+            print(f"\nFound {len(news)} relevant news items:\n")
+            for i, item in enumerate(news[:15], 1):
+                region_tag = f"[{item.get('region', 'Global').upper()}]" if item.get('region') else ""
+                print(f"  {i}. {region_tag} [{item['source']}] {item['title'][:55]}...")
 
             print("\n" + "-" * 40)
             print("Select items for the newsletter (comma-separated, e.g., 1,3,5)")
             print("Then you can add custom URLs if needed.")
-            if show_isos:
-                print("Tip: ISO tags help balance coverage across markets.")
             print("-" * 40)
             selection = input("\nYour selection (or press Enter to skip to custom): ").strip()
 
@@ -1489,32 +1030,19 @@ class NewsletterAgent:
         print("\n[STEP 8/9] MORE FROM AROUND THE WORLD")
         print("-" * 40)
 
-        # Adjustable day filter
-        days_input = input("\nHow many days to look back? (default: 14): ").strip()
-        world_days = int(days_input) if days_input.isdigit() and int(days_input) > 0 else 14
-
         # Determine which articles to show based on selected region
         if self.selected_region == "europe":
             # Europe edition: show US/Australia articles
             print("(Articles from US, Australia - NEM, WEM, MISO, ERCOT, CAISO)")
-            print(f"\nFetching non-Europe articles from the last {world_days} days...")
-            articles = self.modo_scraper.get_non_europe_articles(days=world_days, limit=10)
+            print("\nFetching non-Europe articles (US, Australia)...")
+            articles = self.modo_scraper.get_non_europe_articles(days=14, limit=10)
             world_label = "non-Europe"
-        elif self.selected_region == "us":
-            # US edition: show Europe and Australia articles
-            print("(Articles from Europe and Australia - GB, Germany, Spain, NEM, WEM)")
-            print(f"\nFetching Europe & Australia articles from the last {world_days} days...")
-            articles = self.modo_scraper.get_articles(region="gb_europe", days=world_days, limit=10)
-            # Also get Australia articles
-            aus_articles = self.modo_scraper.get_articles(region="australia", days=world_days, limit=5)
-            articles = articles + aus_articles
-            world_label = "Europe & Australia"
         else:
-            # Australia edition: show Europe and US articles
-            print("(Articles from Europe and US - GB, Germany, ERCOT, MISO, CAISO)")
-            print(f"\nFetching Europe & US articles from the last {world_days} days...")
-            articles = self.modo_scraper.get_articles(region="gb_europe", days=world_days, limit=10)
-            world_label = "Europe & US"
+            # US or Australia edition: show Europe articles
+            print("(Articles from Europe - GB, Germany, Spain, Italy, France)")
+            print("\nFetching Europe articles...")
+            articles = self.modo_scraper.get_articles(region="gb_europe", days=14, limit=10)
+            world_label = "Europe"
 
         if articles:
             print(f"\nFound {len(articles)} {world_label} articles:\n")
@@ -1613,14 +1141,6 @@ class NewsletterAgent:
         meta_file.write_text(f"Subject: {metadata['subject']}\n\nPreview Text: {metadata['preview_text']}")
 
         print(f"\n  Metadata saved to: {meta_file}")
-        
-        # Browser preview option
-        print("\nPreview in browser?")
-        print("1. Yes, open preview")
-        print("2. No, continue")
-        
-        if self._get_choice(2) == 1:
-            self._preview_in_browser(output_file)
 
         # HubSpot publishing - returns updated HTML with HubSpot image URLs
         final_html = self._step_hubspot_publish(html, metadata)
@@ -1702,14 +1222,6 @@ class NewsletterAgent:
             if result:
                 print(f"\n✓ Email draft created in HubSpot!")
                 print(f"  Email ID: {result.get('id')}")
-                
-                # Send Slack notification
-                if self.SLACK_WEBHOOK_URL:
-                    self._send_slack_notification(
-                        subject=metadata['subject'],
-                        hubspot_id=result.get('id')
-                    )
-                
                 # Return the updated HTML with HubSpot image URLs
                 return result.get('_updated_html', html)
             else:
@@ -1768,12 +1280,7 @@ class NewsletterAgent:
 
 def main():
     """Entry point."""
-    parser = argparse.ArgumentParser(description='Weekly Dispatch Newsletter Agent')
-    parser.add_argument('--preview', action='store_true', help='Dry run with dummy content')
-    parser.add_argument('--resume', action='store_true', help='Resume from last checkpoint')
-    args = parser.parse_args()
-    
-    agent = NewsletterAgent(dry_run=args.preview, resume=args.resume)
+    agent = NewsletterAgent()
     agent.run()
 
 
