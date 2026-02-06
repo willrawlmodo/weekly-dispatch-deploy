@@ -850,6 +850,12 @@ const App = {
         this.showStep('region');
     },
 
+    logout() {
+        fetch('/auth/logout', { method: 'POST' })
+            .then(() => { window.location.href = '/login'; })
+            .catch(() => { window.location.href = '/login'; });
+    },
+
     /** HTML-escape a string for safe DOM insertion. */
     esc(str) {
         const el = document.createElement('span');
