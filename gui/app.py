@@ -17,9 +17,14 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+import base64
+import secrets
+
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, Response
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 import uvicorn
 
@@ -55,6 +60,58 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+
+# ── HTTP Basic Auth (optional, enabled via env vars) ───────
+
+BASIC_AUTH_USERNAME = os.getenv("BASIC_AUTH_USERNAME")
+BASIC_AUTH_PASSWORD = os.getenv("BASIC_AUTH_PASSWORD")
+AUTH_ENABLED = bool(BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD)
+
+security = HTTPBasic()
+
+
+class BasicAuthMiddleware(BaseHTTPMiddleware):
+    """Require HTTP Basic Auth on all routes when credentials are configured."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip auth if env vars aren't set (local dev)
+        if not AUTH_ENABLED:
+            return await call_next(request)
+
+        # Let static/upload assets through without auth would expose content,
+        # so we protect everything.
+        auth = request.headers.get("Authorization")
+        if not auth or not auth.startswith("Basic "):
+            return Response(
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="Weekly Dispatch"'},
+                content="Authentication required",
+            )
+
+        try:
+            decoded = base64.b64decode(auth.split(" ", 1)[1]).decode("utf-8")
+            username, password = decoded.split(":", 1)
+        except Exception:
+            return Response(
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="Weekly Dispatch"'},
+                content="Invalid credentials",
+            )
+
+        username_ok = secrets.compare_digest(username, BASIC_AUTH_USERNAME)
+        password_ok = secrets.compare_digest(password, BASIC_AUTH_PASSWORD)
+
+        if not (username_ok and password_ok):
+            return Response(
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="Weekly Dispatch"'},
+                content="Invalid credentials",
+            )
+
+        return await call_next(request)
+
+
+app.add_middleware(BasicAuthMiddleware)
 
 # ── Shared instances ────────────────────────────────────────
 
@@ -720,10 +777,13 @@ def open_browser():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
 
+    auth_status = "ON (credentials required)" if AUTH_ENABLED else "OFF (open access)"
+
     print("\n  ╔══════════════════════════════════════════╗")
     print("  ║   MODO ENERGY WEEKLY DISPATCH — GUI      ║")
     print("  ╠══════════════════════════════════════════╣")
     print(f"  ║   http://localhost:{port}                  ║")
+    print(f"  ║   Auth: {auth_status:<33}║")
     print("  ╚══════════════════════════════════════════╝\n")
 
     # Only open browser locally (Render/cloud sets PORT env var)
