@@ -771,7 +771,7 @@ const App = {
         } catch (e) {
             // Error already shown by api() — add helpful hint
             resultBox.innerHTML = `
-                <strong style="color:#c00;">HubSpot publish failed.</strong><br>
+                <strong class="error-text">HubSpot publish failed.</strong><br>
                 ${this.esc(e.message)}<br><br>
                 <strong>Tip:</strong> Use the <em>Download HTML</em> button instead, then manually upload to HubSpot.
             `;
