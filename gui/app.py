@@ -17,13 +17,12 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
 
-import base64
+import hashlib
 import secrets
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, Response
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, Response, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -61,57 +60,64 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
-# ── HTTP Basic Auth (optional, enabled via env vars) ───────
+# ── Cookie-based Auth (optional, enabled via env vars) ─────
 
-BASIC_AUTH_USERNAME = os.getenv("BASIC_AUTH_USERNAME")
-BASIC_AUTH_PASSWORD = os.getenv("BASIC_AUTH_PASSWORD")
-AUTH_ENABLED = bool(BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD)
+AUTH_USERNAME = os.getenv("BASIC_AUTH_USERNAME")
+AUTH_PASSWORD = os.getenv("BASIC_AUTH_PASSWORD")
+AUTH_ENABLED = bool(AUTH_USERNAME and AUTH_PASSWORD)
 
-security = HTTPBasic()
+# Generate a random secret for signing session tokens (changes on restart, which is fine)
+SESSION_SECRET = secrets.token_hex(32)
+
+# Set of valid session tokens (in-memory; cleared on restart)
+_valid_sessions: set[str] = set()
 
 
-class BasicAuthMiddleware(BaseHTTPMiddleware):
-    """Require HTTP Basic Auth on all routes when credentials are configured."""
+def _make_session_token(username: str) -> str:
+    """Create an HMAC-style session token tied to the server secret."""
+    raw = f"{SESSION_SECRET}:{username}"
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+# Paths that should be accessible without auth
+_PUBLIC_PATHS = {"/login", "/auth/login"}
+
+
+class CookieAuthMiddleware(BaseHTTPMiddleware):
+    """Redirect unauthenticated users to a branded login page."""
 
     async def dispatch(self, request: Request, call_next):
-        # Skip auth if env vars aren't set (local dev)
+        # Skip auth entirely if env vars aren't set (local dev)
         if not AUTH_ENABLED:
             return await call_next(request)
 
-        # Let static/upload assets through without auth would expose content,
-        # so we protect everything.
-        auth = request.headers.get("Authorization")
-        if not auth or not auth.startswith("Basic "):
-            return Response(
+        path = request.url.path
+
+        # Allow the login page and its POST endpoint through
+        if path in _PUBLIC_PATHS:
+            return await call_next(request)
+
+        # Allow static assets needed by the login page (fonts, etc.)
+        if path.startswith("/static/login"):
+            return await call_next(request)
+
+        # Check for valid session cookie
+        session_token = request.cookies.get("dispatch_session")
+        if session_token and session_token in _valid_sessions:
+            return await call_next(request)
+
+        # API calls get a 401 (so app.js can detect and redirect)
+        if path.startswith("/api/"):
+            return JSONResponse(
                 status_code=401,
-                headers={"WWW-Authenticate": 'Basic realm="Weekly Dispatch"'},
-                content="Authentication required",
+                content={"error": "Not authenticated"},
             )
 
-        try:
-            decoded = base64.b64decode(auth.split(" ", 1)[1]).decode("utf-8")
-            username, password = decoded.split(":", 1)
-        except Exception:
-            return Response(
-                status_code=401,
-                headers={"WWW-Authenticate": 'Basic realm="Weekly Dispatch"'},
-                content="Invalid credentials",
-            )
-
-        username_ok = secrets.compare_digest(username, BASIC_AUTH_USERNAME)
-        password_ok = secrets.compare_digest(password, BASIC_AUTH_PASSWORD)
-
-        if not (username_ok and password_ok):
-            return Response(
-                status_code=401,
-                headers={"WWW-Authenticate": 'Basic realm="Weekly Dispatch"'},
-                content="Invalid credentials",
-            )
-
-        return await call_next(request)
+        # Everything else redirects to login page
+        return RedirectResponse(url="/login", status_code=302)
 
 
-app.add_middleware(BasicAuthMiddleware)
+app.add_middleware(CookieAuthMiddleware)
 
 # ── Shared instances ────────────────────────────────────────
 
@@ -169,6 +175,59 @@ class WorldSelect(BaseModel):
 
 class HubSpotPublish(BaseModel):
     upload_images: bool = True
+
+
+# ═══════════════════════════════════════════════════════════
+#  AUTH ENDPOINTS
+# ═══════════════════════════════════════════════════════════
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    """Serve the branded login page."""
+    return FileResponse(STATIC_DIR / "login.html")
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/auth/login")
+async def login(creds: LoginRequest):
+    """Validate credentials and set a session cookie."""
+    if not AUTH_ENABLED:
+        return {"ok": True}
+
+    username_ok = secrets.compare_digest(creds.username, AUTH_USERNAME)
+    password_ok = secrets.compare_digest(creds.password, AUTH_PASSWORD)
+
+    if not (username_ok and password_ok):
+        return JSONResponse(status_code=401, content={"error": "Invalid credentials"})
+
+    token = _make_session_token(creds.username)
+    _valid_sessions.add(token)
+
+    response = JSONResponse(content={"ok": True})
+    response.set_cookie(
+        key="dispatch_session",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 7,  # 7 days
+    )
+    return response
+
+
+@app.post("/auth/logout")
+async def logout(request: Request):
+    """Clear session cookie and redirect to login."""
+    token = request.cookies.get("dispatch_session")
+    if token:
+        _valid_sessions.discard(token)
+
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie("dispatch_session")
+    return response
 
 
 # ═══════════════════════════════════════════════════════════

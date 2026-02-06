@@ -25,6 +25,13 @@ const App = {
         if (body) opts.body = JSON.stringify(body);
 
         const res = await fetch(path, opts);
+
+        // Session expired or not authenticated — redirect to login
+        if (res.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+
         const data = await res.json();
         if (!res.ok) {
             const msg = data.detail || data.error || 'API error';
